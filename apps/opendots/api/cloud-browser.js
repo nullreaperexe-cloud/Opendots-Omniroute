@@ -6,7 +6,7 @@
  */
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
-import { Agent } from 'undici';
+import { request as httpsRequest } from 'node:https';
 
 function privateIP(ip) {
   if (ip.includes(':')) {
@@ -94,43 +94,70 @@ export default async function handler(req, res) {
   catch(e) {return respond(res,400,{error:e.message});}
   try {
     const address=await publicAddress(u.hostname);
-    const agent=new Agent({connect:{
-      lookup(host,opts,cb) {cb(null,address.address,address.family);},
-    }});
-    let response;
-    try {
-      response=await fetch(u.href,{
-        dispatcher:agent,
-        redirect:'manual',
-        signal:AbortSignal.timeout(10000),
-        headers:{'User-Agent':'OpenDotsResearchReader/1.0 (+public-page-research)','Accept':'text/html, text/plain'},
+    const fetched = await new Promise((resolve,reject) => {
+      const req2 = httpsRequest(u, {
+        method: 'GET',
+        timeout: 10000,
+        lookup(host, opts, cb) { cb(null, address.address, address.family); },
+        headers: {
+          'User-Agent':'OpenDotsResearchReader/1.0 (+public-page-research)',
+          'Accept':'text/html,text/plain',
+        },
+      }, incoming => {
+        if(incoming.statusCode>=300 && incoming.statusCode<400) {
+          incoming.resume();
+          reject(new Error('redirect'));
+          return;
+        }
+        if(incoming.statusCode!==200) {
+          incoming.resume();
+          reject(new Error('http-status:'+incoming.statusCode));
+          return;
+        }
+        const type = incoming.headers['content-type'] || '';
+        if(!/text\/html|text\/plain/i.test(type)){
+          incoming.resume();
+          reject(new Error('unsupported-type'));
+          return;
+        }
+        const size = Number(incoming.headers['content-length'] || 0);
+        if(size > 800_000){
+          incoming.resume();
+          reject(new Error('too-large'));
+          return;
+        }
+        const chunks=[]; let bytes=0;
+        incoming.on('data', chunk=>{
+          bytes += chunk.length;
+          if(bytes>800_000) {
+            req2.destroy(new Error('too-large'));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        incoming.on('error',reject);
+        incoming.on('end',()=>resolve({type,raw:Buffer.concat(chunks).toString('utf8')}));
       });
-    } finally {await agent.close();}
-    // No auto redirect; reject to prevent following an unexpected internal URL.
-    if(response.status>=300 && response.status<400)
-      return respond(res,422,{error:'This webpage redirects. Open the destination URL directly after checking it is public HTTPS.'});
-    if(!response.ok) return respond(res,502,{error:'This website returned HTTP '+response.status});
-    const type=response.headers.get('content-type')||'';
-    if(!/text\/html|text\/plain/i.test(type))
-      return respond(res,415,{error:'Only HTML and plain-text public webpages can be read.'});
-    const size=Number(response.headers.get('content-length')||0);
-    if(size>800_000) return respond(res,413,{error:'This public webpage is too large to extract safely.'});
-    const reader=response.body?.getReader();
-    if(!reader) return respond(res,502,{error:'This webpage has no readable content.'});
-    const chunks=[];let bytes=0;
-    while(true){
-      const {done,value}=await reader.read();
-      if(done)break;
-      bytes+=value.byteLength;
-      if(bytes>800_000){await reader.cancel();return respond(res,413,{error:'Webpage exceeded the maximum reading size.'});}
-      chunks.push(value);
-    }
-    const raw=Buffer.concat(chunks.map(x=>Buffer.from(x))).toString('utf8');
+      req2.on('timeout',()=>req2.destroy(new Error('timeout')));
+      req2.on('error',reject);
+      req2.end();
+    });
+    const {type,raw}=fetched;
     const {title,content}=type.includes('text/plain') ?
       {title:u.hostname,content:raw.slice(0,18000)}:htmlToReadable(raw);
     if(!content.trim()) return respond(res,422,{error:'This page requires JavaScript or blocks automated readers.'});
     return respond(res,200,{url:u.href,title,content,mode:'public-page-reader'});
   }catch(error){
+    const message = error instanceof Error ? error.message : '';
+    if(message === 'redirect') return respond(res, 422, {
+      error: 'This webpage redirects. Open the destination HTTPS URL directly.',
+    });
+    if(message === 'unsupported-type') return respond(res, 415, {
+      error: 'Only public HTML and plain-text pages can be read.',
+    });
+    if(message === 'too-large') return respond(res, 413, {
+      error: 'Webpage exceeded the maximum reading size.',
+    });
     console.warn('[OpenDots public page reader] safe failure',{
       kind:error?.name==='TimeoutError'?'timeout':'network_or_host',
     });
