@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
-  "buildCommand": "node --test tests/vercel-proxy.node.mjs && node --import tsx --test tests/client-api-null.node.mjs && npm run build:web",
+  "buildCommand": "node --test tests/vercel-proxy.node.mjs && node --import tsx --test tests/client-api-null.node.mjs && node --import tsx --test tests/model-provider.node.mjs && npx tsc -p tsconfig.server.json --noEmit && npm run build:web",
   "outputDirectory": "dist/client",
   "installCommand": "npm ci --ignore-scripts",
   "regions": [
