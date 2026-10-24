@@ -67,7 +67,12 @@ export function createApp({
     const allowedOrigins = new Set(origins ?? [new URL(c.req.url).origin]);
     if (requestOrigin && !allowedOrigins.has(requestOrigin))
       return c.json({ error: 'Cross-origin requests are not allowed.' }, 403);
-    if (c.req.header('sec-fetch-site') === 'cross-site')
+    // When Vercel proxies to the Tailscale Funnel, its server-side fetch is
+    // cross-site even though the user's browser called our same-origin /api.
+    // Sec-Fetch-Site identifies transport context, not the authenticated user.
+    // Continue to enforce allowlisted Origin and the constant-time owner token
+    // below. Unauthenticated local mode retains the cross-site rejection.
+    if (!ownerToken && c.req.header('sec-fetch-site') === 'cross-site')
       return c.json({ error: 'Cross-site requests are not allowed.' }, 403);
     if (ownerToken) {
       const expected = Buffer.from(ownerToken);
