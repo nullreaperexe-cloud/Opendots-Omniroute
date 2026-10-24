@@ -234,7 +234,7 @@ export function useVoice(
       localSession.current = current;
       recognition.continuous = true;
       recognition.interimResults = false;
-      recognition.lang = 'en-US';
+      recognition.lang = 'hi-IN';
       recognition.onerror = (event) => {
         if (current.cancelled) return;
         const error =
@@ -246,50 +246,68 @@ export function useVoice(
       recognition.onresult = (event) => {
         if (current.cancelled || current.processing || mutedRef.current) return;
         const result = event as {
-          results?: ArrayLike<ArrayLike<{ transcript?: string; final?: boolean }>>;
+          resultIndex?: number;
+          results?: ArrayLike<{
+            isFinal?: boolean;
+            0?: { transcript?: string };
+          }>;
         };
         const results = result.results;
         if (!results) return;
         let text = '';
-        for (let index = 0; index < results.length; index++) {
-          const item = results[index]?.[0];
-          if (item?.final !== false && item?.transcript) text += item.transcript;
+        // Web Speech events retain previous results. Process only newly
+        // changed FINAL results to avoid repeating a previous user message.
+        for (let index = Math.max(0, result.resultIndex ?? 0);
+          index < results.length; index++) {
+          const item = results[index];
+          if (item?.isFinal && item[0]?.transcript)
+            text += item[0].transcript + ' ';
         }
         text = text.trim();
         if (!text) return;
         current.processing = true;
+        // Don't transcribe our own speaker output as another user command.
+        try { current.recognition.stop(); } catch {
+          // Already stopped by the browser.
+        }
         current.transcript.push(`You: ${text}`);
         setUserCaption(text);
         setPhase('thinking');
+        const resumeListening = () => {
+          if (current.cancelled) return;
+          current.processing = false;
+          setPhase('listening');
+          try { current.recognition.start(); } catch {
+            // The browser may be completing its stop transition.
+          }
+        };
         void (async () => {
           try {
             const response = (await onLocalTurn?.(text))?.trim() ?? '';
             if (current.cancelled) return;
-            if (response && !speakerMutedRef.current) {
-              current.transcript.push(`Dot: ${response}`);
-              setCaption(response);
-              setPhase('speaking');
-              const utterance = new SpeechSynthesisUtterance(response);
-              utterance.onend = () => {
-                if (!current.cancelled) {
-                  setPhase('listening');
-                  current.processing = false;
-                  try {
-                    current.recognition.start();
-                  } catch {
-                    // Recognition may already be restarting after a browser-level stop.
-                  }
-                }
-              };
-              window.speechSynthesis.speak(utterance);
-            } else {
-              current.processing = false;
-              setPhase('listening');
+            if (!response) {
+              setError('No AI reply was returned for this voice turn.');
+              resumeListening();
+              return;
             }
+            current.transcript.push(`Dot: ${response}`);
+            setCaption(response);
+            if (speakerMutedRef.current) {
+              resumeListening();
+              return;
+            }
+            setPhase('speaking');
+            const utterance = new SpeechSynthesisUtterance(response);
+            utterance.lang = /[\u0900-\u097f]/.test(response) ? 'hi-IN' : 'en-IN';
+            utterance.onend = resumeListening;
+            utterance.onerror = () => {
+              setError('Speech playback failed. Check your browser voices.');
+              resumeListening();
+            };
+            window.speechSynthesis.speak(utterance);
           } catch (error) {
-            current.processing = false;
-            setPhase('listening');
             setError(error instanceof Error ? error.message : 'Voice turn failed.');
+            resumeListening();
           }
         })();
       };
