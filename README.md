@@ -2,8 +2,9 @@
 
 ## Hosting choice: ₹0 only (October 2026)
 
-**This project must not provision paid Render services.** The old root `render.yaml` paid Blueprint was removed. For a persistent backend, see **[Oracle Always Free VM guide](deploy/ORACLE_ALWAYS_FREE.md)** and the protected bootstrap **[`deploy/always-free-prepare.sh`](deploy/always-free-prepare.sh)**. The VM needs an eligible free allocation (currently 2 OCPUs / 12 GB RAM total), card verification by the cloud provider, and a real HTTPS backend origin. Availability is not guaranteed. Alternatively, self-host on an already-owned computer with Cloudflare Tunnel; it must stay switched on. Vercel alone cannot run this entire always-on stack, and no backend VM has been created yet.
+**Selected: [Windows PC + Tailscale Funnel (free Personal)](deploy/HOME_TAILSCALE_FREE.md).** Vercel hosts the existing frontend, and the PC runs OpenDots API, OmniRoute, browser worker and Redis. [Local Compose override](deploy/compose-home.yml) and [secure PowerShell bootstrap](deploy/Start-OpenDots-Home.ps1) have been added. Tailscale Funnel provides a stable HTTPS hostname, but the PC must remain on, and provider API quotas are separate. The backend has **NOT** yet been run or linked to the Vercel environment.
 
+**Alternative:** [Oracle Always Free VM](deploy/ORACLE_ALWAYS_FREE.md) requires a separate approved account and available compute capacity. Do not provision paid Render services; the old paid Blueprint was removed.
 
 This repository combines the user-supplied **OpenDots** source and **OmniRoute 3.8.53** source.
 It routes OpenDots's text and agent model calls to a *private* OmniRoute service without
