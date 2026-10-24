@@ -29,14 +29,19 @@ export async function api<T>(
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  const data = (await response
-    .json()
-    .catch(() => ({ error: 'Server returned an unreadable response.' }))) as {
+  const data = (await response.json().catch(() => null)) as {
     error?: string;
-  };
+  } | null;
   if (!response.ok)
     throw new ApiError(
-      data.error ?? `Request failed (${response.status}).`,
+      data?.error ||
+        `Request failed (HTTP ${response.status}). The API proxy returned a non-JSON response; check Vercel/Tailscale and the backend logs.`,
+      response.status,
+    );
+  if (response.status === 204) return undefined as T;
+  if (data === null)
+    throw new ApiError(
+      `Server returned an unreadable HTTP ${response.status} response. Check the backend logs and proxy.`,
       response.status,
     );
   return data as T;
