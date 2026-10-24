@@ -6,6 +6,8 @@ services:
     build:
       args:
         OMNIROUTE_LOW_MEMORY_BUILD: "1"
+        # Keep one V8 worker from reserving nearly the entire 7.5 GiB WSL VM.
+        OMNIROUTE_BUILD_MEMORY_MB: "5120"
   opendots:
     ports:
       - "127.0.0.1:4310:4310"
