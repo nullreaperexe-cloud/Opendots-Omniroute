@@ -1,6 +1,6 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import handler from '../api/instant-chat.js';
+import handler, { classifyGatewayFailure } from '../api/instant-chat.js';
 
 const savedFetch = globalThis.fetch;
 const savedOidc = process.env.VERCEL_OIDC_TOKEN;
@@ -88,4 +88,47 @@ test('free model routing retries after model-specific 403 without selecting paid
   assert.equal(out.statusCode,200);
   assert.equal(out.body.reply,'Fallback worked');
   assert.deepEqual(attempts,['free/denied','free/available']);
+});
+
+test('classifies customer verification 403 without exposing gateway response details', () => {
+  const result = classifyGatewayFailure(403, 'customer_verification_required', 'Payment method required');
+  assert.equal(result.code, 'customer_verification_required');
+  assert.equal(result.retry, false);
+  assert.match(result.error, /verification/);
+});
+test('classifies account-wide access_denied as non-retryable', () => {
+  const result = classifyGatewayFailure(403, 'access_denied', 'Forbidden.');
+  assert.equal(result.code, 'access_denied');
+  assert.equal(result.retry, false);
+  assert.match(result.error, /Logs/);
+});
+test('only model-specific denials can retry on 403', () => {
+  const result = classifyGatewayFailure(403, 'model_not_available', 'Model is not available on the free tier');
+  assert.equal(result.code, 'model_access_denied');
+  assert.equal(result.retry, true);
+});
+test('invalid key and credit exhaustion do not trigger fallback', () => {
+  assert.equal(classifyGatewayFailure(401).code, 'invalid_gateway_key');
+  assert.equal(classifyGatewayFailure(401).retry, false);
+  assert.equal(classifyGatewayFailure(402).code, 'gateway_credits_required');
+  assert.equal(classifyGatewayFailure(402).retry, false);
+});
+test('403 account rejection returns actionable nonsecret category', async () => {
+  process.env.VERCEL_OIDC_TOKEN = 'test-oidc-only';
+  const { default: isolatedHandler } = await import('../api/instant-chat.js?account-denied-test');
+  let calls = 0;
+  globalThis.fetch = async (url) => {
+    calls++;
+    if (url.endsWith('/models')) return new Response(JSON.stringify({data: [
+      { id:'free/test',type:'language',modalities:{input:['text'],output:['text']},pricing:{input:'0',output:'0'} },
+    ]}), {status:200});
+    return new Response(JSON.stringify({error:{type:'access_denied',message:'Forbidden.'}}),{status:403});
+  };
+  const out=mockResponse();
+  await isolatedHandler(req([{role:'user',content:'hello'}]),out);
+  assert.equal(out.statusCode,503);
+  assert.equal(out.body.reason,'access_denied');
+  assert.equal(out.body.gatewayStatus,403);
+  assert.equal(calls,2);
+  assert.ok(!JSON.stringify(out.body).includes('test-oidc-only'));
 });
