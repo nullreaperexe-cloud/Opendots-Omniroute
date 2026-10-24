@@ -10,7 +10,26 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "/api/proxy?__opendots_path=:path*"
+      "destination": "https://kanish.tail7524cf.ts.net/api/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-OpenDots-Route",
+          "value": "external-funnel-v3"
+        }
+      ]
     }
   ]
 }
