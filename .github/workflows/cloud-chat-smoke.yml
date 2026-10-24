@@ -43,5 +43,6 @@ jobs:
           print('Model:',d.get('model','none'))
           print('Reply received:',isinstance(d.get('reply'),str) and bool(d['reply'].strip()))
           if 'error' in d: print('Reason:',d['error'])
+          if 'gatewayStatus' in d: print('Gateway HTTP:',d['gatewayStatus'])
           if code!='200' or not d.get('reply'): raise SystemExit('Cloud chat is not live yet.')
           PY
