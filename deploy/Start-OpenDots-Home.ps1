@@ -78,13 +78,21 @@ function New-Secret {
   try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
   return (-join ($bytes | ForEach-Object { $_.ToString("x2") }))
 }
-if (Test-Path $envFile) {
-  throw "A private .env already exists. Not overwriting credentials. Set APP_ORIGIN to '$frontend,$backend' yourself."
-}
-$ownerToken = New-Secret
-$browserSecret = New-Secret
-$bridgeSecret = New-Secret
-$envText = @"
+if (Test-Path -LiteralPath $envFile -PathType Leaf) {
+  # Do not rotate local owner tokens on every restart; preserve the exact same
+  # browser/owner credentials and avoid breaking persisted sessions.
+  $originSettings = @(Get-Content -LiteralPath $envFile | Where-Object { $_ -match '^APP_ORIGIN=' })
+  if ($originSettings.Count -ne 1 -or
+      !$originSettings[0].Contains($frontend) -or
+      !$originSettings[0].Contains($backend)) {
+    throw "Existing private .env has an APP_ORIGIN mismatch. Update that key locally to '$frontend,$backend' without sharing or deleting other secrets."
+  }
+  Write-Host "Reusing existing private .env; preserving all credentials."
+} else {
+  $ownerToken = New-Secret
+  $browserSecret = New-Secret
+  $bridgeSecret = New-Secret
+  $envText = @"
 OWNER_TOKEN=$ownerToken
 BROWSER_SECRET=$browserSecret
 OMNIROUTE_WS_BRIDGE_SECRET=$bridgeSecret
@@ -94,15 +102,28 @@ AGENT_BACKEND_DOMAIN=localhost
 APP_ORIGIN=$frontend,$backend
 WEB_SEARCH_PROVIDER=browser
 "@
-try {
   [System.IO.File]::WriteAllText($envFile, $envText + [Environment]::NewLine, [System.Text.Encoding]::ASCII)
+  Write-Host "Generated private .env. Never upload this file."
+}
+
+try {
   Push-Location $repoRoot
   try {
     & docker compose -f docker-compose.yml -f deploy/compose-home.yml config --quiet
     if ($LASTEXITCODE -ne 0) { throw "Docker Compose validation failed." }
-    & docker compose -f docker-compose.yml -f deploy/compose-home.yml up -d --build redis omniroute browser opendots
+
+    # Pull, NEVER build, the version-pinned upstream OmniRoute runtime.
+    & docker compose -f docker-compose.yml -f deploy/compose-home.yml pull redis omniroute
+    if ($LASTEXITCODE -ne 0) { throw "Could not pull prebuilt OmniRoute / Redis images." }
+
+    # These two small project services still build locally; OmniRoute does NOT.
+    & docker compose -f docker-compose.yml -f deploy/compose-home.yml build browser opendots
+    if ($LASTEXITCODE -ne 0) { throw "OpenDots or browser image build failed." }
+
+    & docker compose -f docker-compose.yml -f deploy/compose-home.yml up -d --no-build redis omniroute browser opendots
     if ($LASTEXITCODE -ne 0) { throw "Docker Compose services did not start successfully." }
     & docker compose -f docker-compose.yml -f deploy/compose-home.yml ps
+    if ($LASTEXITCODE -ne 0) { throw "Unable to read service status." }
   } finally { Pop-Location }
 } catch {
   Write-Warning "The secure .env has been kept for troubleshooting. Do NOT upload it."
