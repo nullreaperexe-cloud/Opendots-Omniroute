@@ -103,7 +103,8 @@ export default async function handler(request, response) {
     { role: 'system', content: 'You are OpenDots, a helpful, thoughtful AI chat assistant. Answer in the user\'s preferred language; understand Hinglish and Hindi. Never pretend to have run web browsing, computer tools, background jobs, or other unavailable actions. This is a lightweight browser-only chat session with no tool access.' },
     ...messages,
   ];
-  for (const model of candidates.slice(0, 3)) {
+  let lastUpstreamStatus = 0;
+  for (const model of candidates.slice(0, 5)) {
     try {
       const upstream = await fetch(gateway + '/chat/completions', {
         method: 'POST',
@@ -112,12 +113,18 @@ export default async function handler(request, response) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ model, messages: prompt, max_tokens: 600, stream: false }),
-        signal: AbortSignal.timeout(35000),
+        signal: AbortSignal.timeout(9000),
       });
       if (!upstream.ok) {
         // Do not surface provider internals or raw upstream errors to the browser.
-        if ([401, 402, 403].includes(upstream.status)) {
-          return send(response, 503, { error: 'Vercel AI Gateway is not authorized or has no free access enabled for this project.', gatewayStatus: upstream.status });
+        lastUpstreamStatus = upstream.status;
+        // 403 can be model-specific; try a *different verified free* model.
+        // Only 401/402 signal authentication or credits and stop immediately.
+        if ([401, 402].includes(upstream.status)) {
+          return send(response, 503, {
+            error: 'Vercel AI Gateway authentication or free access is unavailable.',
+            gatewayStatus: upstream.status,
+          });
         }
         continue;
       }
@@ -131,6 +138,7 @@ export default async function handler(request, response) {
     }
   }
   return send(response, 503, {
-    error: 'Free AI models could not respond right now (capacity or quota). Try again later.'
+    error: 'Free AI models could not respond right now (model access, capacity or quota). Try again later.',
+    gatewayStatus: lastUpstreamStatus || undefined
   });
 }
