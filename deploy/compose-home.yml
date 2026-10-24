@@ -1,14 +1,15 @@
-# Overrides for Windows/PC-based Docker Compose + Tailscale Funnel.
-# Start only redis, omniroute, browser and opendots (NOT caddy).
-# The only host-accessible application port is loopback.
+# Windows/PC mode: use the official versioned OmniRoute image.
+# This completely removes the multi-GB Next.js build from the home PC.
+# No direct public ports: host-facing app endpoints bind to loopback only.
+# Tailscale Funnel publishes ONLY the OpenDots API (127.0.0.1:4310).
 services:
   omniroute:
-    build:
-      args:
-        OMNIROUTE_LOW_MEMORY_BUILD: "1"
-        OMNIROUTE_BUILD_BACKEND_ONLY: "1"
-        # Keep one V8 worker from reserving nearly the entire 7.5 GiB WSL VM.
-        OMNIROUTE_BUILD_MEMORY_MB: "5120"
+    # Erase the inherited source-build declaration, otherwise compose may
+    # still attempt a memory-heavy local Next.js compile.
+    build: !reset null
+    image: diegosouzapw/omniroute:3.8.50
+    environment:
+      OMNIROUTE_MEMORY_MB: "2048"
   opendots:
     ports:
       - "127.0.0.1:4310:4310"
