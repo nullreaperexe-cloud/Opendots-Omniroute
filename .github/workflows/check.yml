@@ -16,5 +16,9 @@ jobs:
       - run: node --test apps/opendots/tests/vercel-proxy.node.mjs
       - run: npm ci --ignore-scripts
         working-directory: apps/opendots
+      - run: node --test tests/instant-chat.node.mjs
+        working-directory: apps/opendots
+      - run: npx tsc --noEmit
+        working-directory: apps/opendots
       - run: npm run build:web
         working-directory: apps/opendots
