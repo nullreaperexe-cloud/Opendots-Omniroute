@@ -1,0 +1,47 @@
+name: Verify Live Cloud Chat
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/cloud-chat-smoke.yml']
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check deployed cloud-chat endpoint and one free-model response
+        shell: bash
+        run: |
+          set -euo pipefail
+          SITE="https://opendots-omniroute.vercel.app"
+          echo "Checking GET /api/instant-chat"
+          curl --retry 2 --retry-delay 3 -sS --max-time 25 -o /tmp/cloud-health.json -w 'HTTP %{http_code}\n' "$SITE/api/instant-chat"
+          echo "Health response:"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          raw=Path('/tmp/cloud-health.json').read_text()
+          try:
+              d=json.loads(raw)
+              print({k:d.get(k) for k in ('service','mode','hosting','configured')})
+          except Exception:
+              print('Non-JSON response; check Vercel protection or routing')
+          PY
+          echo "Checking one free-only model completion"
+          CODE=$(curl -sS --max-time 60 -o /tmp/cloud-reply.json -w '%{http_code}' \
+            "$SITE/api/instant-chat" -X POST \
+            -H 'Content-Type: application/json' \
+            -H "Origin: $SITE" \
+            --data '{"messages":[{"role":"user","content":"Reply with a single word: ready"}]}')
+          RESPONSE_CODE="$CODE" python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          d=json.loads(Path('/tmp/cloud-reply.json').read_text())
+          code=os.environ['RESPONSE_CODE']
+          print('Completion HTTP:',code)
+          print('Model:',d.get('model','none'))
+          print('Reply received:',isinstance(d.get('reply'),str) and bool(d['reply'].strip()))
+          if 'error' in d: print('Reason:',d['error'])
+          if code!='200' or not d.get('reply'): raise SystemExit('Cloud chat is not live yet.')
+          PY
