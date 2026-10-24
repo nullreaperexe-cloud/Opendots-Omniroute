@@ -35,6 +35,8 @@ export function InstantChat({ onFullWorkspace }: { onFullWorkspace: () => void }
   });
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
+  const [errorReason, setErrorReason] = useState('');
+  const [aiReady, setAiReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -56,6 +58,7 @@ export function InstantChat({ onFullWorkspace }: { onFullWorkspace: () => void }
     setId('');
     setDraft('');
     setError('');
+    setErrorReason('');
     setMobile(false);
     setLastModel('');
   };
@@ -75,6 +78,7 @@ export function InstantChat({ onFullWorkspace }: { onFullWorkspace: () => void }
 
     setBusy(true);
     setError('');
+    setErrorReason('');
     setDraft('');
     setId(targetId);
     setSessions(prev => {
@@ -94,15 +98,18 @@ export function InstantChat({ onFullWorkspace }: { onFullWorkspace: () => void }
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: toSend }),
       });
-      const data: { reply?: unknown; model?: unknown; error?: unknown } = await response.json();
+      const data: { reply?: unknown; model?: unknown; error?: unknown; reason?: unknown } = await response.json();
       if (!response.ok || typeof data.reply !== 'string' || !data.reply.trim()) {
+        setErrorReason(typeof data.reason === 'string' ? data.reason : '');
         throw new Error(typeof data.error === 'string' ? data.error : 'Cloud chat could not respond.');
       }
       setSessions(prev => prev.map(s => s.id === targetId
         ? { ...s, updatedAt: Date.now(), messages: [...s.messages, { role: 'assistant', content: data.reply as string }] }
         : s));
       setLastModel(typeof data.model === 'string' ? data.model : '');
+      setAiReady(true);
     } catch (e) {
+      setAiReady(false);
       setError(e instanceof Error ? e.message : 'Could not send. Try again.');
     } finally { setBusy(false); }
   };
@@ -140,7 +147,7 @@ export function InstantChat({ onFullWorkspace }: { onFullWorkspace: () => void }
             <button className="instant-icon" title="Toggle navigation" aria-label="Toggle navigation" onClick={() => {if(window.innerWidth < 780) setMobile(true); else setCollapsed(v=>!v);}}><Menu size={20}/></button>
             <span className="instant-header-word">OpenDots <span>/ Cloud Chat</span></span>
           </div>
-          <span className="instant-cloud-label"><span/> Free-model chat</span>
+          <span className={'instant-cloud-label' + (error ? ' instant-cloud-error' : aiReady ? ' instant-cloud-ready' : ' instant-cloud-unknown')}><span/>{error ? 'AI access blocked' : aiReady ? 'AI connected' : 'Cloud chat'}</span>
         </header>
         <section className="instant-conversation" aria-label="Chat messages">
           {!session?.messages.length ? (
@@ -166,7 +173,14 @@ export function InstantChat({ onFullWorkspace }: { onFullWorkspace: () => void }
           )}
         </section>
         <div className="instant-compose-wrap">
-          {error && <div role="alert" className="instant-error"><CircleHelp size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss"><X size={15}/></button></div>}
+          {error && <div role="alert" className="instant-error">
+            <CircleHelp size={16}/>
+            <span>{error}
+              {['access_denied','gateway_forbidden','customer_verification_required','gateway_credits_required','invalid_gateway_key'].includes(errorReason) &&
+                <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">Open Vercel account settings ↗</a>}
+            </span>
+            <button onClick={()=>setError('')} aria-label="Dismiss"><X size={15}/></button>
+          </div>}
           <form className="instant-form" onSubmit={e=>{e.preventDefault();void send(draft);}}>
             <textarea autoFocus aria-label="Message OpenDots cloud chat" value={draft}
               placeholder="Message OpenDots…"
