@@ -25,7 +25,7 @@ export default async function handler(request) {
   }
   const target = new URL(incoming.pathname + incoming.search, origin);
   const headers = new Headers(request.headers);
-  for (const name of ['host','connection','content-length','transfer-encoding','origin',
+  for (const name of ['host','connection','content-length','transfer-encoding',
     'x-forwarded-for','x-forwarded-host','x-forwarded-proto','cf-connecting-ip']) {
     headers.delete(name);
   }

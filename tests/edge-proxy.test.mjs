@@ -25,7 +25,7 @@ test('Vercel proxy streams POST calls with authorization to HTTPS backend', asyn
     const response = await handler(request);
     assert.equal(target,'https://agent.example.com/api/copilotkit?thread=abc');
     assert.equal(options.headers.get('authorization'),'Bearer SOME_TEST_TOKEN');
-    assert.equal(options.headers.get('origin'),null);
+    assert.equal(options.headers.get('origin'),'https://my-dots.vercel.app');
     assert.equal(response.status,200);
     assert.equal(response.headers.get('Cache-Control'),'no-store');
     assert.equal(await response.text(),'{"ok":true}');
