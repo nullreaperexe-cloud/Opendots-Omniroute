@@ -65,10 +65,10 @@ if (!$existing) {
         'FREELLMAPI_ENCRYPTION_KEY=' + $hex
       } else { $_ }
     })
-    [IO.File]::WriteAllLines($envFile, $lines, (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllLines($envFile, $lines, ([System.Text.UTF8Encoding]::new($false)))
   } else {
     $append = [Environment]::NewLine + 'FREELLMAPI_ENCRYPTION_KEY=' + $hex + [Environment]::NewLine
-    [IO.File]::AppendAllText($envFile, $append, (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::AppendAllText($envFile, $append, ([System.Text.UTF8Encoding]::new($false)))
   }
   Write-Host '[OK] Generated a private persistent FreeLLMAPI encryption key.'
 }
