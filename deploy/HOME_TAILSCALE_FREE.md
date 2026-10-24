@@ -40,6 +40,59 @@ Prepare a private `.env` first from `.env.example` with 32+ byte random owner/br
 
 A PowerShell bootstrap is supplied as `deploy/Start-OpenDots-Home.ps1`. It securely generates `.env` if one doesn't already exist, **reuses existing secrets** on later runs, validates APP_ORIGIN, checks Docker and Tailscale, pulls prebuilt OmniRoute and Redis, builds only the smaller OpenDots/browser services and starts them. It cannot sign up for Tailscale, enable protected machine authorization by itself, or control whether Windows/Docker keep running. The upstream image includes the OmniRoute dashboard even though its port remains loopback-only. Models, provider accounts, and runtime behavior must still be checked independently.
 
+## Connect a real OmniRoute API key (required for AI replies)
+
+Open `http://127.0.0.1:20128` **on the Windows hosting PC**; this is
+OmniRoute's loopback-only dashboard and should never be published through
+Tailscale Funnel. Configure **Providers** with a genuine eligible provider
+connection (API key/OAuth if required). Then create an **Endpoint/API key** from
+OmniRoute's own dashboard. An OmniRoute Endpoint key only authorizes access to
+the gateway; it does not supply upstream model/provider access by itself.
+
+The bootstrap-generated `OMNIROUTE_API_KEY=private-internal-router` is only an
+internal placeholder, **not a real OmniRoute Endpoint key**. To install your new
+key without displaying it, run in CMD:
+
+```cmd
+cd /d C:\Users\Kanish\opendots-omniroute
+powershell -NoProfile -ExecutionPolicy Bypass -File ".\deploy\Connect-OmniRoute-Key.ps1"
+```
+
+The script accepts the API key through a hidden local prompt, updates just
+`OMNIROUTE_API_KEY` and `OMNIROUTE_REQUIRE_API_KEY=true` in the untracked
+private `.env`, and restarts OpenDots + OmniRoute without rebuilding them.
+The home Compose override then enforces valid Endpoint Bearer keys. Never put
+the key in the browser, GitHub, Vercel frontend variables or chat messages.
+The user-facing OpenDots **OWNER_TOKEN is different** and remains unchanged.
+
+The agent uses the gateway URL `http://omniroute:20128/v1` on Docker's private
+network, with `OMNIROUTE_MODEL=auto` unless changed intentionally. Model `auto`
+requires an eligible configured provider and an available route; the gateway
+key alone does not provide AI completions. Refer to the OmniRoute versioned
+dashboard documentation before choosing a provider.
+
+For safe diagnostics, run:
+
+```cmd
+powershell -NoProfile -ExecutionPolicy Bypass -File ".\deploy\Test-OpenDots-Integration.ps1"
+```
+
+It checks the authenticated local CopilotKit `/api/copilotkit/info`, the
+Vercel Edge proxy, and OmniRoute `/v1/models`, without printing credentials.
+An HTTP 200 on all three verifies routing and auth, but only a successful
+actual chat validates the selected provider and model.
+
+### Proxy / 403 correction
+
+The Vercel proxy strips browser-only `Sec-Fetch-*` metadata before making
+its independent cross-site request to Tailscale Funnel. The backend allows a
+cross-site server-to-server hop **only when the private owner bearer token is
+present**, while preserving its strict `Origin` allowlist and constant-time
+authentication. Frontend and backend code must BOTH be updated: push/redeploy
+the Vercel frontend and on the hosting PC run `git pull origin main`, then
+`docker compose -f docker-compose.yml -f deploy/compose-home.yml up -d --build opendots`.
+The normal OmniRoute home image is prebuilt and never recompiled.
+
 ## Live frontend wiring
 
 Only **after** the Tailscale Funnel address has been created and verified, set the existing Vercel project's `OPENDOTS_BACKEND_ORIGIN` for Production and Preview to the exact HTTPS origin. Then redeploy and test:
