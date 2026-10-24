@@ -1,0 +1,20 @@
+name: Integrations & Web Build
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/opendots/package-lock.json
+      - run: node --test tests/*.test.mjs
+      - run: node --check 'apps/opendots/api/[...path].js'
+      - run: npm ci --ignore-scripts
+        working-directory: apps/opendots
+      - run: npm run build:web
+        working-directory: apps/opendots

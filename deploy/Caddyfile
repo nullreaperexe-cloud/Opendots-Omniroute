@@ -1,0 +1,6 @@
+{$AGENT_BACKEND_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy opendots:4310 {
+        flush_interval -1
+    }
+}

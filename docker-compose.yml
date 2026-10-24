@@ -1,0 +1,136 @@
+name: opendots-omniroute
+
+services:
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis-data:/data
+    networks: [ai-link]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  omniroute:
+    build:
+      context: ./apps/omniroute
+      target: runner-base
+    restart: unless-stopped
+    stop_grace_period: 40s
+    environment:
+      HOSTNAME: 0.0.0.0
+      PORT: "20128"
+      DATA_DIR: /app/data
+      REDIS_URL: redis://redis:6379
+      # Only reachable on private Compose network and localhost SSH tunnel.
+      REQUIRE_API_KEY: "false"
+      NEXT_TELEMETRY_DISABLED: "1"
+      OMNIROUTE_WS_BRIDGE_SECRET: ${OMNIROUTE_WS_BRIDGE_SECRET:-}
+    volumes:
+      - omniroute-data:/app/data
+    ports:
+      - "127.0.0.1:20128:20128"
+    networks:
+      - ai-link
+      - provider-egress
+    depends_on:
+      redis:
+        condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  opendots:
+    build:
+      context: ./apps/opendots
+      target: app
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "4310"
+      DATABASE_PATH: /data/opendots.sqlite
+      OWNER_ID: ${OWNER_ID:-opendots-owner}
+      OWNER_TOKEN: ${OWNER_TOKEN:?Set a 24+ character OWNER_TOKEN}
+      APP_ORIGIN: ${APP_ORIGIN:?Set your Vercel and backend origins}
+      OMNIROUTE_API_KEY: ${OMNIROUTE_API_KEY:-private-internal-router}
+      OMNIROUTE_MODEL: ${OMNIROUTE_MODEL:-auto}
+      OMNIROUTE_BASE_URL: http://omniroute:20128/v1
+      BROWSER_URL: http://browser:4311
+      BROWSER_SECRET: ${BROWSER_SECRET:?Set a different 24+ character BROWSER_SECRET}
+      WEB_SEARCH_PROVIDER: ${WEB_SEARCH_PROVIDER:-parallel}
+      PARALLEL_API_KEY: ${PARALLEL_API_KEY:-}
+      COMPOSIO_API_KEY: ${COMPOSIO_API_KEY:-}
+      VOICE_API_KEY: ${VOICE_API_KEY:-}
+      VOICE_MODEL: ${VOICE_MODEL:-}
+      VOICE_NAME: ${VOICE_NAME:-marin}
+      INTELLIGENCE_API_KEY: ${INTELLIGENCE_API_KEY:-}
+      CPK_INTELLIGENCE_API_KEY: ${CPK_INTELLIGENCE_API_KEY:-}
+      COMPUTER_SUPERVISOR_URL: ${COMPUTER_SUPERVISOR_URL:-}
+      COMPUTER_SUPERVISOR_TOKEN: ${COMPUTER_SUPERVISOR_TOKEN:-}
+      COMPUTER_TOKEN: ${COMPUTER_TOKEN:-}
+      DO_NOT_TRACK: "1"
+    volumes:
+      - opendots-data:/data
+    networks:
+      - ai-link
+      - browser-link
+      - app-egress
+      - public-web
+    depends_on: [omniroute]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  browser:
+    build:
+      context: ./apps/opendots
+      target: browser
+    restart: unless-stopped
+    init: true
+    shm_size: 256mb
+    read_only: true
+    tmpfs: [/tmp:size=256m]
+    environment:
+      BROWSER_HOST: 0.0.0.0
+      BROWSER_PORT: "4311"
+      BROWSER_SECRET: ${BROWSER_SECRET:?Set a different 24+ character BROWSER_SECRET}
+    networks:
+      - browser-link
+      - browser-egress
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      AGENT_BACKEND_DOMAIN: ${AGENT_BACKEND_DOMAIN:?Specify the backend domain}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [public-web]
+    depends_on: [opendots]
+
+networks:
+  ai-link:
+    internal: true
+  browser-link:
+    internal: true
+  public-web:
+  provider-egress:
+  browser-egress:
+  app-egress:
+
+volumes:
+  redis-data:
+  omniroute-data:
+  opendots-data:
+  caddy-data:
+  caddy-config:
