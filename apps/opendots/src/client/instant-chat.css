@@ -1,0 +1,75 @@
+.instant-root{--i-ink:#24251f;--i-muted:#85847e;--i-bg:#fcfbf8;--i-line:#e9e8e2;display:flex;min-height:100vh;background:var(--i-bg);color:var(--i-ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px}
+.instant-root *{box-sizing:border-box}
+.instant-root button{border:0;box-shadow:none;font-family:inherit}
+.instant-side{width:272px;flex:0 0 272px;background:#f3f2ed;border-right:1px solid var(--i-line);padding:26px 14px 17px;display:flex;flex-direction:column;height:100vh;position:sticky;top:0;z-index:10;transition:margin-left .25s}
+.instant-collapsed .instant-side{margin-left:-272px}
+.instant-brand{display:flex;align-items:center;gap:11px;padding:4px 13px 27px;font-size:22px;font-weight:750;letter-spacing:-1.2px}
+.instant-mark{height:32px;width:32px;border-radius:11px;display:grid;place-items:center;background:#272720;color:#f0dc8b;font-size:23px}
+.instant-side-close{display:none}
+.instant-new{display:flex;align-items:center;justify-content:start;gap:12px;background:#262722!important;color:#fff!important;font-weight:600;border-radius:12px!important;padding:13px 15px!important;width:100%;text-align:left}
+.instant-new:hover{background:#404139!important}
+.instant-new span{margin-left:auto;color:#a8a99f}
+.instant-nav-label{margin:31px 14px 14px;color:#8f8d86;font-size:10px;letter-spacing:1.1px;font-weight:750}
+.instant-history{flex:1;overflow-y:auto;min-height:0}
+.instant-no-history{padding:0 14px;color:#a5a39c;font-size:12px;line-height:1.6}
+.instant-history-row{display:flex;align-items:center;border-radius:10px;margin-bottom:4px}
+.instant-history-row.current{background:#e7e5dd}
+.instant-history-row:hover{background:#eae8e0}
+.instant-history-open{display:flex;align-items:center;gap:10px;background:transparent!important;min-width:0;flex:1;justify-content:start;padding:11px 12px!important;color:#66665f;text-align:left;font-size:13px}
+.instant-history-row.current .instant-history-open{color:#25251f;font-weight:650}
+.instant-history-open span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.instant-delete{background:transparent!important;color:#9b9992;flex-shrink:0;padding:7px!important;opacity:0}
+.instant-history-row:hover .instant-delete,.instant-delete:focus-visible{opacity:1}
+.instant-side-bottom{margin-top:auto;padding-top:12px;border-top:1px solid #e3e1d9}
+.instant-workspace{width:100%;padding:11px!important;display:flex;gap:10px;justify-content:start;color:#595951;background:transparent!important;font-size:12px;text-align:left}
+.instant-workspace:hover{background:#e8e7df!important}
+.instant-side-caption{color:#aaa89d;font-size:11px;line-height:1.6;padding:12px}
+.instant-main{flex:1;min-width:0;height:100vh;display:flex;flex-direction:column}
+.instant-header{height:73px;flex:0 0 73px;display:flex;align-items:center;justify-content:space-between;padding:0 35px;border-bottom:1px solid var(--i-line)}
+.instant-header-left{display:flex;align-items:center;gap:18px}
+.instant-icon{background:transparent!important;padding:7px!important;color:#6c6a65}
+.instant-header-word{font-weight:700;letter-spacing:-.2px}
+.instant-header-word span{color:#a2a19a;font-weight:450}
+.instant-cloud-label{background:#eeefe7;border:1px solid #e4e6d9;border-radius:50px;color:#626d51;padding:7px 12px;font-size:11px;font-weight:600;white-space:nowrap}
+.instant-cloud-label span{height:6px;width:6px;display:inline-block;border-radius:50%;background:#839d65;margin-right:7px}
+.instant-conversation{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column}
+.instant-welcome{margin:auto;width:min(690px,100%);padding:50px 26px 24px;text-align:center}
+.instant-spark{margin:0 auto 23px;height:60px;width:60px;background:#f5ecd0;color:#5f522b;border-radius:20px;display:grid;place-items:center;box-shadow:inset 0 0 0 1px #e8e0c7}
+.instant-welcome h1{margin:0 0 12px;font-weight:640;letter-spacing:-1.5px;font-size:clamp(29px,4vw,42px);color:#292a23}
+.instant-welcome p{font-size:14px;color:#89887f;line-height:1.7;max-width:430px;margin:0 auto}
+.instant-suggestions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:42px;text-align:left}
+.instant-suggestions button{display:flex;align-items:center;justify-content:space-between;text-align:left;background:#fff!important;color:#5b5a54;padding:18px!important;border-radius:13px!important;gap:12px;min-height:66px;border:1px solid #e9e7e1!important;transition:box-shadow .2s,transform .2s;font-size:13px}
+.instant-suggestions button:hover{box-shadow:0 6px 20px #24261b0d;transform:translateY(-2px)}
+.instant-suggestions svg{flex-shrink:0;color:#b6ac8d;transform:rotate(45deg)}
+.instant-messages{width:min(780px,100%);margin:0 auto;padding:34px 25px 30px;display:flex;flex-direction:column;gap:27px}
+.instant-message{display:flex;align-items:flex-start;gap:13px;line-height:1.7}
+.instant-user{justify-content:flex-end}
+.instant-msg-content{min-width:0;overflow-wrap:anywhere;white-space:pre-wrap;font-size:14px}
+.instant-user .instant-msg-content{background:#efeee9;border:1px solid #e6e4dc;border-radius:17px 17px 4px 17px;max-width:84%;padding:13px 17px}
+.instant-assistant .instant-msg-content{flex:1;white-space:normal}
+.instant-avatar{height:28px;width:28px;border-radius:9px;flex-shrink:0;display:grid;place-items:center;background:#292a23;color:#f4dc7f}
+.instant-assistant p{margin:0 0 13px}
+.instant-assistant h1,.instant-assistant h2,.instant-assistant h3{margin:17px 0 9px;letter-spacing:-.4px}
+.instant-assistant ul,.instant-assistant ol{padding-left:22px}
+.instant-assistant pre{background:#272822;color:#f1f0e6;padding:15px;overflow-x:auto;border-radius:12px}
+.instant-assistant code{background:#eeede5;padding:2px 5px;border-radius:4px}
+.instant-assistant pre code{background:none;padding:0}
+.instant-assistant a{color:#766337;text-decoration:underline}
+.instant-thinking{display:flex;align-items:center;gap:11px;color:#8c8a82}
+.instant-dots{animation:instant-pulse 1s ease-in-out infinite alternate}
+@keyframes instant-pulse{to{opacity:.2}}
+.instant-compose-wrap{width:min(800px,100%);padding:0 24px 18px;margin:0 auto}
+.instant-form{border:1px solid #e2e0d7;border-radius:19px;padding:14px 14px 11px;background:#fff;box-shadow:0 8px 33px #26271b0b;transition:border-color .2s}
+.instant-form:focus-within{border-color:#b9ac86}
+.instant-form textarea{display:block;resize:none;border:0!important;outline:none!important;box-shadow:none!important;background:transparent!important;min-height:65px;max-height:170px;width:100%;color:#292a24;padding:3px 4px 10px;font-size:14px;line-height:1.6}
+.instant-form textarea::placeholder{color:#aaa9a2}
+.instant-compose-foot{display:flex;align-items:center;justify-content:space-between;padding:0 3px;font-size:11px;color:#aaa9a0}
+.instant-compose-foot button{width:36px;height:36px;border-radius:12px!important;padding:0!important;background:#292a24!important;color:white!important}
+.instant-compose-foot button:disabled{background:#e6e5df!important;color:#97968f!important}
+.instant-footnote{text-align:center;color:#a3a29b;font-size:10px;margin:10px 0 0;line-height:1.6}
+.instant-footnote span{display:block;word-break:break-word}
+.instant-error{display:flex;gap:9px;align-items:center;line-height:1.5;background:#fff2ed;color:#994f3d;border:1px solid #edd5ca;border-radius:12px;padding:11px 13px;margin-bottom:9px;font-size:12px}
+.instant-error span{flex:1}
+.instant-error button{background:transparent!important;color:inherit;padding:2px!important}
+.instant-scrim{display:none}
+@media(max-width:780px){.instant-side{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);margin:0!important;width:290px;flex-basis:290px;box-shadow:18px 0 60px #17191420}.instant-side.instant-side-open{transform:translateX(0)}.instant-side-close{display:flex!important;margin-left:auto;background:transparent!important;padding:4px!important}.instant-scrim{display:block;position:fixed;inset:0;z-index:9;background:#18191270!important;border-radius:0!important}.instant-header{padding:0 17px;height:65px;flex-basis:65px}.instant-header-left{gap:7px}.instant-header-word{font-size:13px}.instant-cloud-label{padding:7px 10px;font-size:10px}.instant-welcome{padding:30px 20px}.instant-suggestions{grid-template-columns:1fr;margin-top:28px}.instant-suggestions button{min-height:52px;padding:14px!important}.instant-compose-wrap{padding:0 13px 13px}.instant-messages{padding:23px 15px}.instant-user .instant-msg-content{max-width:90%}}
