@@ -44,14 +44,14 @@ const config: PlatformConfig = {
     ? (process.env.OMNIROUTE_MODEL?.trim() || 'auto')
     : (process.env.OPENROUTER_MODEL ?? process.env.OPENAI_MODEL ?? 'openai/gpt-4o-mini'),
   baseUrl: omniRouteApiKey
-    ? (process.env.OMNIROUTE_BASE_URL || 'http://127.0.0.1:20128/v1')
+    ? (process.env.OMNIROUTE_BASE_URL || (process.env.OMNIROUTE_HOSTPORT ? `http://${process.env.OMNIROUTE_HOSTPORT}/v1` : 'http://127.0.0.1:20128/v1'))
     : openRouterApiKey
       ? (process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1')
       : (process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'),
   agentRunTimeoutMs: agentRunTimeoutMsFromEnv(process.env),
   webSearchProvider: webSearchProvider(process.env.WEB_SEARCH_PROVIDER),
   parallelApiKey: process.env.PARALLEL_API_KEY,
-  browserUrl: process.env.BROWSER_URL,
+  browserUrl: process.env.BROWSER_URL || (process.env.BROWSER_HOSTPORT ? `http://${process.env.BROWSER_HOSTPORT}` : undefined),
   browserSecret: process.env.BROWSER_SECRET,
   composioApiKey: process.env.COMPOSIO_API_KEY || undefined,
   computerSupervisorUrl: process.env.COMPUTER_SUPERVISOR_URL,
