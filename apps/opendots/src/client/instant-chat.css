@@ -75,3 +75,12 @@
 @media(max-width:780px){.instant-side{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);margin:0!important;width:290px;flex-basis:290px;box-shadow:18px 0 60px #17191420}.instant-side.instant-side-open{transform:translateX(0)}.instant-side-close{display:flex!important;margin-left:auto;background:transparent!important;padding:4px!important}.instant-scrim{display:block;position:fixed;inset:0;z-index:9;background:#18191270!important;border-radius:0!important}.instant-header{padding:0 17px;height:65px;flex-basis:65px}.instant-header-left{gap:7px}.instant-header-word{font-size:13px}.instant-cloud-label{padding:7px 10px;font-size:10px}.instant-welcome{padding:30px 20px}.instant-suggestions{grid-template-columns:1fr;margin-top:28px}.instant-suggestions button{min-height:52px;padding:14px!important}.instant-compose-wrap{padding:0 13px 13px}.instant-messages{padding:23px 15px}.instant-user .instant-msg-content{max-width:90%}}
 
 .cloud-return{position:fixed;z-index:10000;bottom:18px;right:20px;border-radius:999px!important;background:#262721!important;color:#f4eac4!important;padding:12px 17px!important;border:1px solid #4b4b3d!important;box-shadow:0 8px 30px #17171433!important;font-size:12px;font-weight:600}
+
+/* Online status should only turn green after a real model completion. */
+.instant-cloud-unknown{background:#eeeee9!important;border-color:#e0dfda!important;color:#75736c!important}
+.instant-cloud-unknown span{background:#a5a29b!important}
+.instant-cloud-error{background:#fff0e9!important;border-color:#efcec0!important;color:#9c4f3c!important}
+.instant-cloud-error span{background:#c66b56!important}
+.instant-cloud-ready{background:#eeefe7!important;border-color:#e4e6d9!important;color:#626d51!important}
+.instant-cloud-ready span{background:#839d65!important}
+.instant-error a{display:block;color:#833d28;text-decoration:underline;font-weight:650;margin-top:5px}
