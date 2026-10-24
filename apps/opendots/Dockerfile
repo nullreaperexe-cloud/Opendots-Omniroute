@@ -24,3 +24,13 @@ COPY --from=build /app/dist/server ./dist/server
 USER node
 EXPOSE 4311
 CMD ["node", "dist/server/browser/index.js"]
+
+# Render builds the final Docker stage, while Compose targets app/browser.
+# Use one Render image with both the API and isolated Chromium worker available.
+FROM browser AS render-runtime
+USER root
+COPY --from=build /app/dist/client ./dist/client
+RUN mkdir -p /data && chown node:node /data
+USER node
+EXPOSE 4310
+CMD ["node", "dist/server/server/index.js"]
