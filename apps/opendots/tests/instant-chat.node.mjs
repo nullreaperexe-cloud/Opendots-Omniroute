@@ -1,13 +1,19 @@
-import test, { after } from 'node:test';
+import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import handler from '../api/instant-chat.js';
 
 const savedFetch = globalThis.fetch;
 const savedOidc = process.env.VERCEL_OIDC_TOKEN;
+const savedGatewayKey = process.env.AI_GATEWAY_API_KEY;
+// Vercel injects production keys even while running build-time unit tests.
+// Never use real credentials for mocked requests or couple tests to project settings.
+before(() => { delete process.env.AI_GATEWAY_API_KEY; });
 after(() => {
   globalThis.fetch = savedFetch;
   if (savedOidc === undefined) delete process.env.VERCEL_OIDC_TOKEN;
   else process.env.VERCEL_OIDC_TOKEN = savedOidc;
+  if (savedGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
+  else process.env.AI_GATEWAY_API_KEY = savedGatewayKey;
 });
 
 const mockResponse = () => ({
