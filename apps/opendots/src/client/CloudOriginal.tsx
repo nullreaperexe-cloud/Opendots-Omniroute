@@ -290,7 +290,7 @@ export function CloudOriginal({ onFullWorkspace }: { onFullWorkspace: () => void
               {session.messages.map((m,i)=><div className={'chat-bubble '+m.role} key={session.id+'-'+i}>
                 {m.role==='assistant'?<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>:m.content}
               </div>)}
-              {busy && <div className="thinking"><span/><span/><span/><span>Dot is thinking</div>}
+              {busy && <div className="thinking"><span/><span/><span/><span>Dot is thinking</span></div>}
               <div ref={last}/>
             </div>
             {(error||voice.error) && <div className="chat-error" role="alert">{error||voice.error}
