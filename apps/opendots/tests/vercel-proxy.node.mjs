@@ -39,7 +39,7 @@ test('Vercel disables API caching to avoid owner-data leakage', () => {
 test('frontend build and server process remain in separate environments', () => {
   assert.equal(config.framework, 'vite');
   assert.equal(config.outputDirectory, 'dist/client');
-  assert.match(config.buildCommand, /npm run build:web/);
+  assert.match(config.buildCommand, /npm run verify:web/);
   assert.ok(!JSON.stringify(config).includes('20128'));
   assert.ok(!JSON.stringify(config).includes('OMNIROUTE_API_KEY'));
 });
