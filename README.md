@@ -1,5 +1,10 @@
 # OpenDots + OmniRoute — unified source monorepo
 
+## Hosting choice: ₹0 only (October 2026)
+
+**This project must not provision paid Render services.** The old root `render.yaml` paid Blueprint was removed. For a persistent backend, see **[Oracle Always Free VM guide](deploy/ORACLE_ALWAYS_FREE.md)** and the protected bootstrap **[`deploy/always-free-prepare.sh`](deploy/always-free-prepare.sh)**. The VM needs an eligible free allocation (currently 2 OCPUs / 12 GB RAM total), card verification by the cloud provider, and a real HTTPS backend origin. Availability is not guaranteed. Alternatively, self-host on an already-owned computer with Cloudflare Tunnel; it must stay switched on. Vercel alone cannot run this entire always-on stack, and no backend VM has been created yet.
+
+
 This repository combines the user-supplied **OpenDots** source and **OmniRoute 3.8.53** source.
 It routes OpenDots's text and agent model calls to a *private* OmniRoute service without
 removing the CopilotKit/AG-UI runtime that the existing chat UI depends on.
