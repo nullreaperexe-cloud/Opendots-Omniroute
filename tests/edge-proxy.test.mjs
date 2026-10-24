@@ -1,49 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import handler from '../apps/opendots/api/[...path].js';
+import { readFileSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
 
-test('Vercel proxy streams POST calls with authorization to HTTPS backend', async () => {
-  const savedOrigin = process.env.OPENDOTS_BACKEND_ORIGIN;
-  const savedFetch = globalThis.fetch;
-  let target;
-  let options;
-  try {
-    process.env.OPENDOTS_BACKEND_ORIGIN = 'https://agent.example.com';
-    globalThis.fetch = async (url, init) => {
-      target = url.toString();
-      options = init;
-      return new Response('{"ok":true}', {
-        headers: { 'content-type': 'application/json', 'cache-control':'private' }
-      });
-    };
-    const request = new Request('https://my-dots.vercel.app/api/copilotkit?thread=abc', {
-      method:'POST',
-      headers: { authorization:'Bearer SOME_TEST_TOKEN', origin: 'https://my-dots.vercel.app' },
-      body:'{"hello":"world"}',
-      duplex:'half',
-    });
-    const response = await handler(request);
-    assert.equal(target,'https://agent.example.com/api/copilotkit?thread=abc');
-    assert.equal(options.headers.get('authorization'),'Bearer SOME_TEST_TOKEN');
-    assert.equal(options.headers.get('origin'),'https://my-dots.vercel.app');
-    assert.equal(response.status,200);
-    assert.equal(response.headers.get('Cache-Control'),'no-store');
-    assert.equal(await response.text(),'{"ok":true}');
-  } finally {
-    globalThis.fetch = savedFetch;
-    if (savedOrigin === undefined) delete process.env.OPENDOTS_BACKEND_ORIGIN;
-    else process.env.OPENDOTS_BACKEND_ORIGIN = savedOrigin;
-  }
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const config = JSON.parse(readFileSync(join(root, 'apps/opendots/vercel.json'), 'utf8'));
+
+test('Vercel uses an external HTTPS rewrite for nested OpenDots APIs', () => {
+  assert.equal(config.framework, 'vite');
+  assert.deepEqual(config.rewrites, [{
+    source: '/api/:path*',
+    destination: 'https://kanish.tail7524cf.ts.net/api/:path*',
+  }]);
+  const destination = new URL(config.rewrites[0].destination);
+  assert.equal(destination.protocol, 'https:');
+  assert.equal(destination.hostname, 'kanish.tail7524cf.ts.net');
 });
 
-test('no configured origin fails closed', async () => {
-  const savedOrigin = process.env.OPENDOTS_BACKEND_ORIGIN;
-  try {
-    delete process.env.OPENDOTS_BACKEND_ORIGIN;
-    const response = await handler(new Request('https://example.vercel.app/api/status'));
-    assert.equal(response.status,503);
-  } finally {
-    if (savedOrigin === undefined) delete process.env.OPENDOTS_BACKEND_ORIGIN;
-    else process.env.OPENDOTS_BACKEND_ORIGIN = savedOrigin;
-  }
+test('API routes are uncached and never forwarded to SPA HTML', () => {
+  const rule = config.headers.find((h) => h.source === '/api/:path*');
+  assert.ok(rule);
+  assert.ok(rule.headers.some((h) => h.key === 'Cache-Control' && h.value.includes('no-store')));
+  assert.ok(!config.rewrites[0].destination.includes('index.html'));
+  assert.ok(!config.rewrites[0].destination.includes('api/proxy'));
+  assert.equal(existsSync(join(root, 'apps/opendots/api/[...path].js')), false);
+});
+
+test('old Vercel serverless catchall is not needed for streaming responses', () => {
+  assert.equal(existsSync(join(root, 'apps/opendots/api/proxy.js')), false);
+  assert.ok(config.rewrites[0].destination.endsWith('/api/:path*'));
 });
