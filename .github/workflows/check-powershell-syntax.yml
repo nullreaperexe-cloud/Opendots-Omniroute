@@ -1,0 +1,44 @@
+name: Check Windows PowerShell syntax
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/*.ps1'
+      - '.github/workflows/check-powershell-syntax.yml'
+  pull_request:
+    paths:
+      - 'deploy/*.ps1'
+      - '.github/workflows/check-powershell-syntax.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parse-scripts:
+    name: Parse PowerShell 5.1 scripts
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Parse every deploy script with Windows PowerShell
+        shell: powershell
+        run: |
+          $files = Get-ChildItem -LiteralPath deploy -Filter '*.ps1' -File
+          foreach ($file in $files) {
+            $tokens = $null
+            $parseErrors = $null
+            $null = [System.Management.Automation.Language.Parser]::ParseFile(
+              $file.FullName, [ref]$tokens, [ref]$parseErrors
+            )
+            if ($parseErrors.Count -gt 0) {
+              foreach ($parseError in $parseErrors) {
+                Write-Host "Parser error in $($file.Name) line $($parseError.Extent.StartLineNumber): $($parseError.Message)"
+              }
+              throw "PowerShell syntax check failed for $($file.Name)"
+            }
+            Write-Host "[OK] $($file.Name) syntax valid"
+          }
