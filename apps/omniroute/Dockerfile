@@ -401,3 +401,7 @@ RUN --mount=type=cache,id=s/92ca8a61-c1ba-421f-a389-d48ac7258c2d-npm-cache,targe
     @qoder-ai/qodercli@1.1.63
 
 USER node
+
+# Render builds the last stage; avoid including heavy runner-cli tools.
+# Compose still uses the explicit runner-base target.
+FROM runner-base AS render-runtime
