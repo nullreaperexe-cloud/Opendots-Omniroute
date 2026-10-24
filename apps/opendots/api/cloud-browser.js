@@ -100,7 +100,12 @@ export default async function handler(req, res) {
       const req2 = httpsRequest(u, {
         method: 'GET',
         timeout: 10000,
-        lookup(host, opts, cb) { cb(null, address.address, address.family); },
+        lookup(host, opts, cb) {
+          // Node 24's autoSelectFamily requests an array when opts.all=true.
+          // Return the matching pinned lookup shape for both Node DNS APIs.
+          if (opts?.all) cb(null, [{address:address.address,family:address.family}]);
+          else cb(null, address.address, address.family);
+        },
         headers: {
           'User-Agent':'OpenDotsResearchReader/1.0 (+public-page-research)',
           'Accept':'text/html,text/plain',
