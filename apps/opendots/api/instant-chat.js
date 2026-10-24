@@ -148,17 +148,17 @@ export default async function handler(request, response) {
 
   const token = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN ||
     request.headers['x-vercel-oidc-token'];
-  if (!token) return send(response, 503, { error: 'Vercel AI Gateway authentication is not available for this deployment.' });
+  if (!token) return send(response, 503, { error: 'Vercel AI Gateway authentication is not available for this deployment.', reason: 'gateway_key_missing' });
   let candidates;
   try { candidates = await getFreeModels(); }
-  catch { return send(response, 503, { error: 'Could not verify the current free AI model catalog. Try again.' }); }
+  catch { return send(response, 503, { error: 'Could not verify the current free AI model catalog. Try again.', reason: 'model_catalog_unavailable' }); }
   if (!candidates.length) return send(response, 503, {
-    error: 'No zero-priced models are currently listed. Paid models have been disabled to protect your budget.'
+    error: 'No zero-priced models are currently listed. Paid models have been disabled to protect your budget.',
+    reason: 'no_verified_free_models',
   });
 
-
   const prompt = [
-    { role: 'system', content: 'You are OpenDots, a helpful, thoughtful AI chat assistant. Answer in the user\\'s preferred language; understand Hinglish and Hindi. Never pretend to have run web browsing, computer tools, background jobs, or other unavailable actions. This is a lightweight browser-only chat session with no tool access.' },
+    { role: 'system', content: "You are OpenDots, a helpful, thoughtful AI chat assistant. Answer in the user's preferred language; understand Hinglish and Hindi. Never pretend to have run web browsing, computer tools, background jobs, or other unavailable actions. This is a lightweight browser-only chat session with no tool access." },
     ...messages,
   ];
   let lastFailure;
@@ -177,7 +177,8 @@ export default async function handler(request, response) {
         lastFailure = await readGatewayFailure(upstream);
         if (!lastFailure.retry) {
           return send(response, 503, {
-            error: lastFailure.error, reason: lastFailure.code,
+            error: lastFailure.error,
+            reason: lastFailure.code,
             gatewayStatus: lastFailure.gatewayStatus,
           });
         }
@@ -198,73 +199,5 @@ export default async function handler(request, response) {
     error: lastFailure?.error || 'Free AI models could not respond. Check AI Gateway model access and credits.',
     reason: lastFailure?.code || 'no_available_free_model',
     gatewayStatus: lastFailure?.gatewayStatus,
-  });
-del-only',
-      hosting: 'Vercel',
-      configured: Boolean(process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY ||
-        request.headers['x-vercel-oidc-token']),
-    });
-  }
-  if (request.method !== 'POST') return send(response, 405, { error: 'Method not allowed.' });
-  if (!sameOrigin(request)) return send(response, 403, { error: 'Cross-origin requests are disabled.' });
-  if (Number(request.headers['content-length'] || 0) > 20000)
-    return send(response, 413, { error: 'Chat input is too large.' });
-  let body;
-  try { body = typeof request.body === 'string' ? JSON.parse(request.body) : request.body; }
-  catch { return send(response, 400, { error: 'Invalid JSON request.' }); }
-  const messages = validMessages(body);
-  if (!messages) return send(response, 400, { error: 'Send up to 18 valid chat messages (max 13,000 characters total).' });
-
-  const token = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN ||
-    request.headers['x-vercel-oidc-token'];
-  if (!token) return send(response, 503, { error: 'Vercel AI Gateway authentication is not available for this deployment.' });
-  let candidates;
-  try { candidates = await getFreeModels(); }
-  catch { return send(response, 503, { error: 'Could not verify the current free AI model catalog. Try again.' }); }
-  if (!candidates.length) return send(response, 503, {
-    error: 'No zero-priced models are currently listed. Paid models have been disabled to protect your budget.'
-  });
-
-  const prompt = [
-    { role: 'system', content: 'You are OpenDots, a helpful, thoughtful AI chat assistant. Answer in the user\'s preferred language; understand Hinglish and Hindi. Never pretend to have run web browsing, computer tools, background jobs, or other unavailable actions. This is a lightweight browser-only chat session with no tool access.' },
-    ...messages,
-  ];
-  let lastUpstreamStatus = 0;
-  for (const model of candidates.slice(0, 5)) {
-    try {
-      const upstream = await fetch(gateway + '/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ model, messages: prompt, max_tokens: 600, stream: false }),
-        signal: AbortSignal.timeout(9000),
-      });
-      if (!upstream.ok) {
-        // Do not surface provider internals or raw upstream errors to the browser.
-        lastUpstreamStatus = upstream.status;
-        // 403 can be model-specific; try a *different verified free* model.
-        // Only 401/402 signal authentication or credits and stop immediately.
-        if ([401, 402].includes(upstream.status)) {
-          return send(response, 503, {
-            error: 'Vercel AI Gateway authentication or free access is unavailable.',
-            gatewayStatus: upstream.status,
-          });
-        }
-        continue;
-      }
-      const data = await upstream.json();
-      const answer = data?.choices?.[0]?.message?.content;
-      if (typeof answer === 'string' && answer.trim()) {
-        return send(response, 200, { reply: answer.trim(), model });
-      }
-    } catch {
-      // Retry another currently free model.
-    }
-  }
-  return send(response, 503, {
-    error: 'Free AI models could not respond right now (model access, capacity or quota). Try again later.',
-    gatewayStatus: lastUpstreamStatus || undefined
   });
 }
