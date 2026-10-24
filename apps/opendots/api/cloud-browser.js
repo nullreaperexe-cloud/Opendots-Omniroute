@@ -53,7 +53,9 @@ async function publicAddress(host) {
     throw new Error('Website does not resolve to a public network address.');
   }
   // Pin the first validated address to avoid DNS rebinding after validation.
-  return addresses[0];
+  // Vercel's outbound networking is IPv4-first; pin a validated IPv4 result
+  // instead of selecting an unreachable IPv6 address from dual-stack DNS.
+  return addresses.find(x => x.family === 4) || addresses[0];
 }
 function htmlToReadable(html) {
   let title = (html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || 'Untitled page')
@@ -160,6 +162,7 @@ export default async function handler(req, res) {
     });
     console.warn('[OpenDots public page reader] safe failure',{
       kind:error?.name==='TimeoutError'?'timeout':'network_or_host',
+      code: typeof error?.code === 'string' ? error.code.slice(0, 48) : 'none',
     });
     return respond(res,502,{error:'Could not open this webpage. It may block automated reading, require login or time out.'});
   }
