@@ -29,6 +29,33 @@ jobs:
           if not d.get('configured'):
               raise SystemExit('GROQ_API_KEY is not configured in Vercel Production; add it and redeploy.')
           PY
+          echo "Checking cloud public-page navigation (without browser credentials)"
+          BROWSE_CODE=$(curl -sS --max-time 30 -o /tmp/cloud-browser-health.json -w '%{http_code}' "$SITE/api/cloud-browser")
+          BROWSE_STATUS="$BROWSE_CODE" python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          data=json.loads(Path('/tmp/cloud-browser-health.json').read_text())
+          print('Public webpage reader HTTP:',os.environ['BROWSE_STATUS'])
+          print('Available:',data.get('available'))
+          if os.environ['BROWSE_STATUS']!='200' or data.get('available') is not True:
+              raise SystemExit('Cloud page reader health check failed.')
+          PY
+          READ_STATUS=$(curl -sS --max-time 38 -o /tmp/cloud-browser-page.json -w '%{http_code}' \
+            "$SITE/api/cloud-browser" -X POST \
+            -H 'Content-Type: application/json' \
+            -H "Origin: $SITE" \
+            --data '{"url":"https://www.example.com/"}')
+          READ_HTTP="$READ_STATUS" python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          data=json.loads(Path('/tmp/cloud-browser-page.json').read_text())
+          print('Public webpage read HTTP:',os.environ['READ_HTTP'])
+          print('Source:',data.get('url',''))
+          print('Extracted readable text:',len(data.get('content','')))
+          if os.environ['READ_HTTP']!='200' or len(data.get('content',''))<20:
+              print('Reader message:',data.get('error','not available'))
+              raise SystemExit('Cloud webpage reading failed.')
+          PY
           echo "Checking one real Groq free-tier completion"
           CODE=$(curl -sS --max-time 65 -o /tmp/cloud-reply.json -w '%{http_code}' \
             "$SITE/api/instant-chat" -X POST \
