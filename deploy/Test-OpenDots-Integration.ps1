@@ -43,7 +43,7 @@ function Check([string]$name, [string]$url, [string]$key, [string]$requestOrigin
     $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method GET -Headers $headers -TimeoutSec 25
     $contentType = [string]$response.Headers["Content-Type"]
     $marker = [string]$response.Headers["X-OpenDots-Proxy"]
-    if ($contentType -notmatch "application/(json|[A-Za-z0-9.+-]+\\+json)") {
+    if ($contentType -notmatch "(?i)json") {
       Write-Warning ("{0}: HTTP {1} but unexpected content type {2}" -f $name, [int]$response.StatusCode, $contentType)
     } else {
       Write-Host ("[OK] {0}: HTTP {1}, {2}" -f $name, [int]$response.StatusCode, $contentType)
