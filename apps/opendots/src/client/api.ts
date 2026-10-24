@@ -63,12 +63,9 @@ export async function api<T>(
         : `OpenDots API request failed: HTTP ${response.status} at /api${path}.`;
     throw new ApiError(error, response.status);
   }
-  if (data === null || data === undefined) {
-    throw new ApiError(
-      `OpenDots API returned an empty JSON response at /api${path} (HTTP ${response.status}).`,
-      response.status,
-    );
-  }
+  // Valid JSON `null` is an intentional success response for optional
+  // resources such as conversation captures and page context. Parsing failures
+  // are already rejected above; do not mistake a valid `null` for bad JSON.
   return data as T;
 }
 export function authHeaders(): Record<string, string> {
