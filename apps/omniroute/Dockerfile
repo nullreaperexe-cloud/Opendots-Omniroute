@@ -83,6 +83,11 @@ RUN set -eux; \
 FROM base AS builder
 ARG OMNIROUTE_LOW_MEMORY_BUILD=0
 ENV OMNIROUTE_LOW_MEMORY_BUILD=${OMNIROUTE_LOW_MEMORY_BUILD}
+# The OpenDots Vercel frontend supplies the UI; the home host only needs
+# OmniRoute API endpoints. The source build script stubs dashboard pages when
+# this opt-in flag is set, reducing bundling memory on low-RAM Windows PCs.
+ARG OMNIROUTE_BUILD_BACKEND_ONLY=0
+ENV OMNIROUTE_BUILD_BACKEND_ONLY=${OMNIROUTE_BUILD_BACKEND_ONLY}
 ARG NODE_DIST_URL=
 
 # No telemetry, anywhere. Disable Next.js's anonymous build-time telemetry
