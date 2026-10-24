@@ -1,19 +1,18 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import handler, { classifyGatewayFailure } from '../api/instant-chat.js';
+import handler, { classifyGroqFailure } from '../api/instant-chat.js';
 
-const savedFetch = globalThis.fetch;
-const savedOidc = process.env.VERCEL_OIDC_TOKEN;
-const savedGatewayKey = process.env.AI_GATEWAY_API_KEY;
-// Vercel injects production keys even while running build-time unit tests.
-// Never use real credentials for mocked requests or couple tests to project settings.
-before(() => { delete process.env.AI_GATEWAY_API_KEY; });
+const originalFetch = globalThis.fetch;
+const existingKey = process.env.GROQ_API_KEY;
+const existingModel = process.env.GROQ_MODEL;
+// Unit tests must never use, display, or send real credentials from Vercel.
+before(() => { delete process.env.GROQ_API_KEY; delete process.env.GROQ_MODEL; });
 after(() => {
-  globalThis.fetch = savedFetch;
-  if (savedOidc === undefined) delete process.env.VERCEL_OIDC_TOKEN;
-  else process.env.VERCEL_OIDC_TOKEN = savedOidc;
-  if (savedGatewayKey === undefined) delete process.env.AI_GATEWAY_API_KEY;
-  else process.env.AI_GATEWAY_API_KEY = savedGatewayKey;
+  globalThis.fetch = originalFetch;
+  if (existingKey === undefined) delete process.env.GROQ_API_KEY;
+  else process.env.GROQ_API_KEY = existingKey;
+  if (existingModel === undefined) delete process.env.GROQ_MODEL;
+  else process.env.GROQ_MODEL = existingModel;
 });
 
 const mockResponse = () => ({
@@ -28,107 +27,118 @@ const req = (messages, overrides = {}) => ({
   body: { messages },
   ...overrides,
 });
-test('health endpoint does not send inference or expose credentials', async () => {
+
+test('status endpoint truthfully advertises Groq and no running local backend', async () => {
   const out = mockResponse();
   await handler({ method: 'GET', headers: {} }, out);
   assert.equal(out.statusCode, 200);
-  assert.equal(out.body.mode, 'free-model-only');
+  assert.equal(out.body.provider, 'groq');
+  assert.equal(out.body.cloudBrowser, false);
+  assert.equal(out.body.configured, false);
   assert.ok(!JSON.stringify(out.body).includes('Bearer'));
 });
-test('rejects cross-origin prompts', async () => {
-  const out = mockResponse();
-  await handler(req([{role:'user',content:'hello'}], {headers:{host:'opendots-omniroute.vercel.app',origin:'https://evil.example'}}), out);
-  assert.equal(out.statusCode, 403);
-});
-test('rejects overlong prompts before sending inference', async () => {
-  const out = mockResponse();
-  await handler(req([{role:'user',content:'a'.repeat(2500)}]), out);
-  assert.equal(out.statusCode, 400);
-});
-test('filters out paid models, sends free-only chat with OIDC, and returns reply', async () => {
-  process.env.VERCEL_OIDC_TOKEN = 'test-oidc-never-real';
-  const seen = [];
-  globalThis.fetch = async (url, options) => {
-    seen.push({url,options});
-    if (url.endsWith('/models')) return new Response(JSON.stringify({data:[
-      {id:'paid/test',type:'language',modalities:{input:['text'],output:['text']},pricing:{input:'0.0001',output:'0.1'}},
-      {id:'free/test',type:'language',modalities:{input:['text'],output:['text']},pricing:{input:'0',output:'0'}},
-    ]}), {status:200,headers:{'content-type':'application/json'}});
-    const body = JSON.parse(options.body);
-    assert.equal(body.model,'free/test');
-    assert.equal(options.headers.Authorization,'Bearer test-oidc-never-real');
-    return new Response(JSON.stringify({ choices: [{ message: { content: 'Hello from free model' } }] }), {status:200,headers:{'content-type':'application/json'}});
-  };
+test('cannot use old Vercel AI Gateway key in place of a Groq key', async () => {
+  process.env.AI_GATEWAY_API_KEY = 'old-key-unit-test';
   const out = mockResponse();
   await handler(req([{role:'user',content:'hello'}]),out);
+  assert.equal(out.statusCode,503);
+  assert.equal(out.body.reason,'groq_key_missing');
+  delete process.env.AI_GATEWAY_API_KEY;
+});
+test('missing key produces clear activation instructions without network calls', async () => {
+  delete process.env.GROQ_API_KEY;
+  globalThis.fetch = async () => { throw new Error('Should not call network'); };
+  const out = mockResponse();
+  await handler(req([{role:'user',content:'hi'}]),out);
+  assert.equal(out.statusCode,503);
+  assert.match(out.body.error,/GROQ_API_KEY/);
+  assert.equal(out.body.reason,'groq_key_missing');
+});
+test('blocks cross-origin browser requests', async () => {
+  const out = mockResponse();
+  await handler(req([{role:'user',content:'hello'}],{
+    headers:{host:'opendots-omniroute.vercel.app',origin:'https://evil.example'}
+  }),out);
+  assert.equal(out.statusCode,403);
+});
+test('blocks oversized and invalid history', async () => {
+  const out = mockResponse();
+  await handler(req([{role:'user',content:'a'.repeat(2500)}]),out);
+  assert.equal(out.statusCode,400);
+});
+
+test('Groq completion returns user-visible AI answer and never sends key to browser', async () => {
+  process.env.GROQ_API_KEY = 'gsk_fictional-test-key';
+  delete process.env.GROQ_MODEL;
+  let calls = 0;
+  globalThis.fetch = async (url, options) => {
+    calls++;
+    assert.equal(url,'https://api.groq.com/openai/v1/chat/completions');
+    assert.equal(options.headers.Authorization,'Bearer gsk_fictional-test-key');
+    const body = JSON.parse(options.body);
+    assert.equal(body.model, 'openai/gpt-oss-120b');
+    assert.equal(body.messages.at(-1).content, 'Hello');
+    return new Response(JSON.stringify({
+      choices: [{message:{content:'Hello from GroqCloud'}}],
+    }),{status:200});
+  };
+  const out=mockResponse();
+  await handler(req([{role:'user',content:'Hello'}]),out);
   assert.equal(out.statusCode,200);
-  assert.equal(out.body.reply,'Hello from free model');
-  assert.equal(out.body.model,'free/test');
-  assert.equal(seen.length,2);
+  assert.equal(out.body.reply,'Hello from GroqCloud');
+  assert.equal(out.body.model,'openai/gpt-oss-120b');
+  assert.equal(out.body.provider,'groq');
+  assert.equal(calls,1);
+  assert.ok(!JSON.stringify(out.body).includes('gsk_fictional-test-key'));
   assert.equal(out.headers['Cache-Control'],'no-store, private');
 });
-
-test('free model routing retries after model-specific 403 without selecting paid models', async () => {
-  process.env.VERCEL_OIDC_TOKEN = 'test-oidc-never-real';
-  const { default: freshHandler } = await import('../api/instant-chat.js?fallback-403-test');
-  const attempts = [];
+test('falls back to another Groq model on model-specific 429', async () => {
+  process.env.GROQ_API_KEY = 'gsk_fictional-test-key';
+  const calls=[];
   globalThis.fetch = async (url, options) => {
-    if (url.endsWith('/models')) return new Response(JSON.stringify({data: [
-      {id:'free/denied',type:'language',context_window:9000,modalities:{input:['text'],output:['text']},pricing:{input:'0',output:'0'}},
-      {id:'free/available',type:'language',context_window:3000,modalities:{input:['text'],output:['text']},pricing:{input:'0',output:'0'}},
-      {id:'paid/never',type:'language',context_window:100000,modalities:{input:['text'],output:['text']},pricing:{input:'0.1',output:'0.1'}},
-    ]}),{status:200});
-    const body=JSON.parse(options.body);
-    attempts.push(body.model);
-    if (body.model === 'free/denied') return new Response(JSON.stringify({error:{type:'model_not_available',message:'Model is not available on the free tier'}}),{status:403});
-    return new Response(JSON.stringify({choices:[{message:{content:'Fallback worked'}}]}),{status:200});
+    const {model}=JSON.parse(options.body);
+    calls.push(model);
+    if(calls.length===1)return new Response(JSON.stringify({error:{code:'rate_limit_exceeded'}}),{status:429});
+    return new Response(JSON.stringify({choices:[{message:{content:'Fallback okay'}}]}),{status:200});
   };
   const out=mockResponse();
-  await freshHandler(req([{role:'user',content:'test fallback'}]),out);
+  await handler(req([{role:'user',content:'try fallback'}]),out);
   assert.equal(out.statusCode,200);
-  assert.equal(out.body.reply,'Fallback worked');
-  assert.deepEqual(attempts,['free/denied','free/available']);
+  assert.equal(out.body.reply,'Fallback okay');
+  assert.deepEqual(calls,['openai/gpt-oss-120b','openai/gpt-oss-20b']);
 });
-
-test('classifies customer verification 403 without exposing gateway response details', () => {
-  const result = classifyGatewayFailure(403, 'customer_verification_required', 'Payment method required');
-  assert.equal(result.code, 'customer_verification_required');
-  assert.equal(result.retry, false);
-  assert.match(result.error, /verification/);
-});
-test('classifies account-wide access_denied as non-retryable', () => {
-  const result = classifyGatewayFailure(403, 'access_denied', 'Forbidden.');
-  assert.equal(result.code, 'access_denied');
-  assert.equal(result.retry, false);
-  assert.match(result.error, /Logs/);
-});
-test('only model-specific denials can retry on 403', () => {
-  const result = classifyGatewayFailure(403, 'model_not_available', 'Model is not available on the free tier');
-  assert.equal(result.code, 'model_access_denied');
-  assert.equal(result.retry, true);
-});
-test('invalid key and credit exhaustion do not trigger fallback', () => {
-  assert.equal(classifyGatewayFailure(401).code, 'invalid_gateway_key');
-  assert.equal(classifyGatewayFailure(401).retry, false);
-  assert.equal(classifyGatewayFailure(402).code, 'gateway_credits_required');
-  assert.equal(classifyGatewayFailure(402).retry, false);
-});
-test('403 account rejection returns actionable nonsecret category', async () => {
-  process.env.VERCEL_OIDC_TOKEN = 'test-oidc-only';
-  const { default: isolatedHandler } = await import('../api/instant-chat.js?account-denied-test');
-  let calls = 0;
-  globalThis.fetch = async (url) => {
+test('Groq authentication failure never leaks the API key or retries', async () => {
+  process.env.GROQ_API_KEY = 'gsk_fictional-test-key';
+  let calls=0;
+  globalThis.fetch = async () => {
     calls++;
-    if (url.endsWith('/models')) return new Response(JSON.stringify({data: [
-      { id:'free/test',type:'language',modalities:{input:['text'],output:['text']},pricing:{input:'0',output:'0'} },
-    ]}), {status:200});
-    return new Response(JSON.stringify({error:{type:'access_denied',message:'Forbidden.'}}),{status:403});
+    return new Response(JSON.stringify({error:{code:'invalid_api_key'}}),{status:401});
   };
   const out=mockResponse();
-  await isolatedHandler(req([{role:'user',content:'hello'}]),out);
+  await handler(req([{role:'user',content:'hi'}]),out);
   assert.equal(out.statusCode,503);
-  assert.equal(out.body.reason,'access_denied');
-  assert.equal(out.body.gatewayStatus,403);
-  assert.equal(calls,2);
-  assert.ok(!JSON.stringify(out.body).includes('test-oidc-only'));
+  assert.equal(out.body.reason,'groq_invalid_key');
+  assert.equal(calls,1);
+  assert.ok(!JSON.stringify(out.body).includes('gsk_fictional-test-key'));
+});
+test('model override is restricted to supported model IDs', async () => {
+  process.env.GROQ_API_KEY='gsk_fictional-test-key';
+  process.env.GROQ_MODEL='unrecognized/paid-model';
+  let selected='';
+  globalThis.fetch = async (url, options) => {
+    selected=JSON.parse(options.body).model;
+    return new Response(JSON.stringify({choices:[{message:{content:'ok'}}]}),{status:200});
+  };
+  const out=mockResponse();
+  await handler(req([{role:'user',content:'hi'}]),out);
+  assert.equal(out.statusCode,200);
+  assert.equal(selected,'openai/gpt-oss-120b');
+});
+test('Groq rate limits and invalid API key errors are actionable', () => {
+  assert.equal(classifyGroqFailure(429).reason,'groq_rate_limited');
+  assert.equal(classifyGroqFailure(429).retry,true);
+  assert.equal(classifyGroqFailure(401).reason,'groq_invalid_key');
+  assert.equal(classifyGroqFailure(401).retry,false);
+  assert.equal(classifyGroqFailure(403).reason,'groq_access_denied');
+  assert.equal(classifyGroqFailure(403).retry,false);
 });
