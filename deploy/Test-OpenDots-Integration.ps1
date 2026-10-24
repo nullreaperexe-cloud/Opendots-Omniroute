@@ -42,17 +42,24 @@ function Check([string]$name, [string]$url, [string]$key, [string]$requestOrigin
   try {
     $response = Invoke-WebRequest -UseBasicParsing -Uri $url -Method GET -Headers $headers -TimeoutSec 25
     $contentType = [string]$response.Headers["Content-Type"]
-    $marker = [string]$response.Headers["X-OpenDots-Proxy"]
+    $marker = [string]$response.Headers["X-OpenDots-Route"]
     if ($contentType -notmatch "(?i)json") {
-      Write-Warning ("{0}: HTTP {1} but unexpected content type {2}" -f $name, [int]$response.StatusCode, $contentType)
+      Write-Warning ("{0}: HTTP {1} but unexpected content type {2}. The frontend may have returned HTML instead of the backend API." -f $name, [int]$response.StatusCode, $contentType)
     } else {
-      Write-Host ("[OK] {0}: HTTP {1}, {2}" -f $name, [int]$response.StatusCode, $contentType)
+      try {
+        $json = ConvertFrom-Json -InputObject $response.Content -ErrorAction Stop
+        if ($null -eq $json) { throw "Empty JSON" }
+        Write-Host ("[OK] {0}: HTTP {1}, valid JSON, {2}" -f $name, [int]$response.StatusCode, $contentType)
+      } catch {
+        Write-Warning ("{0}: HTTP {1}, JSON parsing FAILED; this is not a successful API check." -f $name, [int]$response.StatusCode)
+      }
     }
     if ($name -eq "Vercel CopilotKit proxy") {
-      if ($marker -eq "vercel-edge-v2") {
-        Write-Host "   Confirmed request reached the new Vercel API proxy."
+      $cdnMarker = [string]$response.Headers["X-OpenDots-Route"]
+      if ($cdnMarker -eq "external-funnel-v3") {
+        Write-Host "   Confirmed new Vercel external-origin rewrite response marker."
       } else {
-        Write-Warning "Expected X-OpenDots-Proxy: vercel-edge-v2; check deployment and routing."
+        Write-Warning "External rewrite response marker absent; verify that production points to the latest commit."
       }
     }
     if ($name -eq "OmniRoute models") {
@@ -66,7 +73,7 @@ function Check([string]$name, [string]$url, [string]$key, [string]$requestOrigin
     $httpResponse = $_.Exception.Response
     if ($null -ne $httpResponse) {
       $contentType = [string]$httpResponse.Headers["Content-Type"]
-      $marker = [string]$httpResponse.Headers["X-OpenDots-Proxy"]
+      $marker = [string]$httpResponse.Headers["X-OpenDots-Route"]
       Write-Warning ("{0}: HTTP {1}, content-type={2}, proxy-marker={3}" -f
         $name, [int]$httpResponse.StatusCode, $contentType,
         $(if ($marker) { $marker } else { "none" }))
