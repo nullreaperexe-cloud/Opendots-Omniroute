@@ -35,6 +35,9 @@
   "functions": {
     "api/instant-chat.js": {
       "maxDuration": 60
+    },
+    "api/cloud-browser.js": {
+      "maxDuration": 30
     }
   }
 }
