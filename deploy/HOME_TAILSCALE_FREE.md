@@ -25,8 +25,8 @@ References:
 Use the repeatable bootstrap (preserves existing `.env`):
 
 ```cmd
-cd /d C:\\Users\\Kanish\\opendots-omniroute
-powershell -NoProfile -ExecutionPolicy Bypass -File ".\\deploy\\Start-OpenDots-Home.ps1" -FunnelUrl "https://kanish.tail7524cf.ts.net" -VercelOrigin "https://opendots-omniroute.vercel.app"
+cd /d C:\Users\Kanish\opendots-omniroute
+powershell -NoProfile -ExecutionPolicy Bypass -File ".\deploy\Start-OpenDots-Home.ps1" -FunnelUrl "https://kanish.tail7524cf.ts.net" -VercelOrigin "https://opendots-omniroute.vercel.app"
 ```
 
 Or start an already-bootstrapped stack directly (no compiling):
