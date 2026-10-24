@@ -189,7 +189,9 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   // Issue #67: enable React Compiler — automates memoization, removes manual useCallback/useMemo debt.
   // See: https://next.dev/blog/react-compiler
-  reactCompiler: true,
+  // Skip Babel React Compiler's additional optimization pass only for the
+  // low-RAM Windows Docker build. Runtime routing and APIs remain unchanged.
+  reactCompiler: process.env.OMNIROUTE_LOW_MEMORY_BUILD !== "1",
   // OmniRoute is a proxy for AI APIs — request bodies routinely include
   // multi-MB payloads (vision models, image edits, base64-encoded files,
   // long chat histories with embedded images). Next.js's Server Action
@@ -200,6 +202,9 @@ const nextConfig = {
   // accept for image-bearing requests; tune via env if a deployment needs
   // more.
   experimental: {
+    // Limit Next.js build workers on memory-constrained home PCs. This setting
+    // is opt-in, so standard and CI builds retain their original parallelism.
+    ...(process.env.OMNIROUTE_LOW_MEMORY_BUILD === "1" ? { cpus: 1 } : {}),
     serverActions: {
       bodySizeLimit: process.env.OMNIROUTE_SERVER_ACTIONS_BODY_LIMIT || "50mb",
     },
