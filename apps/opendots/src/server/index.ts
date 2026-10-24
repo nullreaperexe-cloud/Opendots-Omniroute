@@ -1,4 +1,5 @@
 import { webSearchProvider } from './parallel.js';
+import { modelGatewayFromEnv } from './model-provider.js';
 import { createShutdown } from './shutdown.js';
 import { reportChannelFailure, safeFailure } from './slack-channel.js';
 import { serve } from '@hono/node-server';
@@ -31,23 +32,16 @@ const workspace = new WorkspaceStore(
   database,
   process.env.OWNER_ID ?? 'opendots-owner',
 );
-// OmniRoute is the primary private gateway. Legacy OpenRouter / OpenAI remain
-// supported as explicit fallbacks for existing OpenDots installations.
-const omniRouteApiKey = process.env.OMNIROUTE_API_KEY?.trim();
-const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
+// FreeLLMAPI wins only when an explicit key is configured; otherwise retain
+// the existing OmniRoute / OpenRouter / OpenAI behavior.
+const modelGateway = modelGatewayFromEnv(process.env);
 const config: PlatformConfig = {
   intelligenceKey: intelligenceApiKeyFromEnv(process.env),
   intelligenceApiUrl: process.env.INTELLIGENCE_API_URL || undefined,
   intelligenceWsUrl: intelligenceWsUrlFromEnv(process.env),
-  apiKey: omniRouteApiKey || openRouterApiKey || process.env.OPENAI_API_KEY,
-  model: omniRouteApiKey
-    ? (process.env.OMNIROUTE_MODEL?.trim() || 'auto')
-    : (process.env.OPENROUTER_MODEL ?? process.env.OPENAI_MODEL ?? 'openai/gpt-4o-mini'),
-  baseUrl: omniRouteApiKey
-    ? (process.env.OMNIROUTE_BASE_URL || (process.env.OMNIROUTE_HOSTPORT ? `http://${process.env.OMNIROUTE_HOSTPORT}/v1` : 'http://127.0.0.1:20128/v1'))
-    : openRouterApiKey
-      ? (process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1')
-      : (process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'),
+  apiKey: modelGateway.apiKey,
+  model: modelGateway.model,
+  baseUrl: modelGateway.baseUrl,
   agentRunTimeoutMs: agentRunTimeoutMsFromEnv(process.env),
   webSearchProvider: webSearchProvider(process.env.WEB_SEARCH_PROVIDER),
   parallelApiKey: process.env.PARALLEL_API_KEY,
