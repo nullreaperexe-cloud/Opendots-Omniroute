@@ -61,6 +61,7 @@ export function InstantChat({ onFullWorkspace }: { onFullWorkspace: () => void }
     setErrorReason('');
     setMobile(false);
     setLastModel('');
+    setAiReady(false);
   };
   const deleteSession = (which: string) => {
     setSessions(prev => prev.filter(x => x.id !== which));
@@ -147,7 +148,7 @@ export function InstantChat({ onFullWorkspace }: { onFullWorkspace: () => void }
             <button className="instant-icon" title="Toggle navigation" aria-label="Toggle navigation" onClick={() => {if(window.innerWidth < 780) setMobile(true); else setCollapsed(v=>!v);}}><Menu size={20}/></button>
             <span className="instant-header-word">OpenDots <span>/ Cloud Chat</span></span>
           </div>
-          <span className={'instant-cloud-label' + (error ? ' instant-cloud-error' : aiReady ? ' instant-cloud-ready' : ' instant-cloud-unknown')}><span/>{error ? 'AI access blocked' : aiReady ? 'AI connected' : 'Cloud chat'}</span>
+          <span className={'instant-cloud-label' + (error ? ' instant-cloud-error' : aiReady ? ' instant-cloud-ready' : ' instant-cloud-unknown')}><span/>{error ? 'Groq connection issue' : aiReady ? 'Groq connected' : 'Groq cloud chat'}</span>
         </header>
         <section className="instant-conversation" aria-label="Chat messages">
           {!session?.messages.length ? (
@@ -176,8 +177,8 @@ export function InstantChat({ onFullWorkspace }: { onFullWorkspace: () => void }
           {error && <div role="alert" className="instant-error">
             <CircleHelp size={16}/>
             <span>{error}
-              {['access_denied','gateway_forbidden','customer_verification_required','gateway_credits_required','invalid_gateway_key'].includes(errorReason) &&
-                <a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">Open Vercel account settings ↗</a>}
+              {['groq_key_missing','groq_invalid_key','groq_access_denied'].includes(errorReason) &&
+                <><a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">GroqCloud API Keys ↗</a><a href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">Vercel Environment Variables ↗</a></>}
             </span>
             <button onClick={()=>setError('')} aria-label="Dismiss"><X size={15}/></button>
           </div>}
@@ -191,7 +192,7 @@ export function InstantChat({ onFullWorkspace }: { onFullWorkspace: () => void }
               <button disabled={busy||!draft.trim()} type="submit" aria-label="Send message"><ArrowUp size={18}/></button>
             </div>
           </form>
-          <p className="instant-footnote">Free model capacity can fluctuate. Chat has no autonomous browser, tools, or background work. {lastModel && <span>Last model: {lastModel}</span>}</p>
+          <p className="instant-footnote">Groq free-tier limits apply. This cloud chat has no autonomous browser, tools, or background work. {lastModel && <span>Last model: {lastModel}</span>}</p>
         </div>
       </main>
     </div>
