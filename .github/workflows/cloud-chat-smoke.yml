@@ -1,4 +1,4 @@
-name: Verify Live Cloud Chat
+name: Verify Live Groq Cloud Chat
 on:
   workflow_dispatch:
   push:
@@ -10,39 +10,42 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - name: Check deployed cloud-chat endpoint and one free-model response
+      - name: Verify Vercel Groq configuration and one real answer
         shell: bash
         run: |
           set -euo pipefail
           SITE="https://opendots-omniroute.vercel.app"
-          echo "Checking GET /api/instant-chat"
-          curl --retry 2 --retry-delay 3 -sS --max-time 25 -o /tmp/cloud-health.json -w 'HTTP %{http_code}\n' "$SITE/api/instant-chat"
-          echo "Health response:"
-          python3 - <<'PY'
-          import json
+          echo "Checking Vercel chat health (does not expose keys)"
+          STATUS=$(curl --retry 2 --retry-delay 3 -sS --max-time 25 -o /tmp/cloud-health.json -w '%{http_code}' "$SITE/api/instant-chat")
+          HEALTH_STATUS="$STATUS" python3 - <<'PY'
+          import json,os
           from pathlib import Path
-          raw=Path('/tmp/cloud-health.json').read_text()
-          try:
-              d=json.loads(raw)
-              print({k:d.get(k) for k in ('service','mode','hosting','configured')})
-          except Exception:
-              print('Non-JSON response; check Vercel protection or routing')
+          d=json.loads(Path('/tmp/cloud-health.json').read_text())
+          print('Health HTTP:', os.environ['HEALTH_STATUS'])
+          print('Provider:',d.get('provider'))
+          print('Configured:',d.get('configured'))
+          if os.environ['HEALTH_STATUS'] != '200' or d.get('provider')!='groq':
+              raise SystemExit('Groq serverless handler is not deployed.')
+          if not d.get('configured'):
+              raise SystemExit('GROQ_API_KEY is not configured in Vercel Production; add it and redeploy.')
           PY
-          echo "Checking one free-only model completion"
-          CODE=$(curl -sS --max-time 60 -o /tmp/cloud-reply.json -w '%{http_code}' \
+          echo "Checking one real Groq free-tier completion"
+          CODE=$(curl -sS --max-time 65 -o /tmp/cloud-reply.json -w '%{http_code}' \
             "$SITE/api/instant-chat" -X POST \
             -H 'Content-Type: application/json' \
             -H "Origin: $SITE" \
             --data '{"messages":[{"role":"user","content":"Reply with a single word: ready"}]}')
           RESPONSE_CODE="$CODE" python3 - <<'PY'
-          import json, os
+          import json,os
           from pathlib import Path
-          d=json.loads(Path('/tmp/cloud-reply.json').read_text())
-          code=os.environ['RESPONSE_CODE']
-          print('Completion HTTP:',code)
-          print('Model:',d.get('model','none'))
-          print('Reply received:',isinstance(d.get('reply'),str) and bool(d['reply'].strip()))
-          if 'error' in d: print('Reason:',d['error'])
-          if 'gatewayStatus' in d: print('Gateway HTTP:',d['gatewayStatus'])
-          if code!='200' or not d.get('reply'): raise SystemExit('Cloud chat is not live yet.')
+          data=json.loads(Path('/tmp/cloud-reply.json').read_text())
+          print('Completion HTTP:',os.environ['RESPONSE_CODE'])
+          print('Provider:',data.get('provider','unavailable'))
+          print('Model:',data.get('model','none'))
+          print('Reply received:',isinstance(data.get('reply'),str) and bool(data['reply'].strip()))
+          if 'error' in data:
+              print('Error category:',data.get('reason','unknown'))
+              print('Message:',data['error'])
+          if os.environ['RESPONSE_CODE']!='200' or not data.get('reply'):
+              raise SystemExit('Groq inference is not configured or cannot respond.')
           PY
