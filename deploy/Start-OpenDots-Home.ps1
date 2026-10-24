@@ -9,7 +9,7 @@ or publicly exposes the OmniRoute dashboard.
 param(
   [Parameter(Mandatory = $true)]
   [string]$FunnelUrl,
-  [string]$VercelOrigin = "https://opendots-omniroute-zeta.vercel.app"
+  [string]$VercelOrigin = "https://opendots-omniroute.vercel.app"
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -107,85 +107,58 @@ WEB_SEARCH_PROVIDER=browser
 }
 
 
-# Only start FreeLLMAPI when the user explicitly configured its unified key.
-# Legacy OmniRoute installations continue to boot exactly as before.
-$freeKeyLines = @(Get-Content -LiteralPath $envFile |
+# Only start FreeLLMAPI when an actual unified key is configured.
+# Existing OmniRoute installations remain unaffected.
+$freeLines = @(Get-Content -LiteralPath $envFile |
   Where-Object { $_.StartsWith('FREELLMAPI_API_KEY=') })
-if ($freeKeyLines.Count -gt 1) {
+if ($freeLines.Count -gt 1) {
   throw 'Duplicate FREELLMAPI_API_KEY in private .env.'
 }
-$useFreeLLMAPI = ($freeKeyLines.Count -eq 1 -and
-  $freeKeyLines[0].Substring('FREELLMAPI_API_KEY='.Length).Trim().Length -gt 0)
+$useFreeLLMAPI = $false
+if ($freeLines.Count -eq 1) {
+  $useFreeLLMAPI = $freeLines[0].Substring('FREELLMAPI_API_KEY='.Length).Trim().Length -gt 0
+}
 if ($useFreeLLMAPI) {
-  $encryption = @(Get-Content -LiteralPath $envFile |
+  $encryptLines = @(Get-Content -LiteralPath $envFile |
     Where-Object { $_.StartsWith('FREELLMAPI_ENCRYPTION_KEY=') })
-  if ($encryption.Count -ne 1 -or
-      $encryption[0].Substring('FREELLMAPI_ENCRYPTION_KEY='.Length) -notmatch '^[a-fA-F0-9]{64}
-  try {
-    & docker compose -f docker-compose.yml -f deploy/compose-home.yml config --quiet
-    if ($LASTEXITCODE -ne 0) { throw "Docker Compose validation failed." }
-
-    # Pull, NEVER build, the version-pinned upstream OmniRoute runtime.
-    if ($useFreeLLMAPI) {
-      & docker compose -f docker-compose.yml -f deploy/compose-home.yml --profile freellmapi pull redis omniroute freellmapi
-    } else {
-      & docker compose -f docker-compose.yml -f deploy/compose-home.yml pull redis omniroute
-    }
-    if ($LASTEXITCODE -ne 0) { throw "Could not pull private gateway or Redis images." }
-
-    # These two small project services still build locally; OmniRoute does NOT.
-    & docker compose -f docker-compose.yml -f deploy/compose-home.yml build browser opendots
-    if ($LASTEXITCODE -ne 0) { throw "OpenDots or browser image build failed." }
-
-    if ($useFreeLLMAPI) {
-      & docker compose -f docker-compose.yml -f deploy/compose-home.yml --profile freellmapi up -d --no-build redis omniroute freellmapi browser opendots
-    } else {
-      & docker compose -f docker-compose.yml -f deploy/compose-home.yml up -d --no-build redis omniroute browser opendots
-    }
-    if ($LASTEXITCODE -ne 0) { throw "Docker Compose services did not start successfully." }
-    & docker compose -f docker-compose.yml -f deploy/compose-home.yml ps
-    if ($LASTEXITCODE -ne 0) { throw "Unable to read service status." }
-  } finally { Pop-Location }
-} catch {
-  Write-Warning "The secure .env has been kept for troubleshooting. Do NOT upload it."
-  throw
-}
-Write-Host "Local OpenDots backend should now be accessible at http://127.0.0.1:4310"
-Write-Host "The required Tailscale public origin is $backend"
-Write-Host "If not already enabled, Tailscale Funnel must expose local TCP port 4310."
-Write-Host "The separate Vercel environment OPENDOTS_BACKEND_ORIGIN must be $backend"
-Write-Host "Keep the PC and Docker Desktop running; provider accounts are still required for AI."
-) {
-    throw 'FREELLMAPI_ENCRYPTION_KEY is missing or invalid. Run Setup-FreeLLMAPI.ps1 once.'
+  if ($encryptLines.Count -ne 1) {
+    throw 'FreeLLMAPI encryption key missing. Run Setup-FreeLLMAPI.ps1.'
   }
-  Write-Host 'FreeLLMAPI gateway configured; enabling optional private Docker service.'
+  $encryption = $encryptLines[0].Substring('FREELLMAPI_ENCRYPTION_KEY='.Length).Trim()
+  if ($encryption -notmatch '^[a-fA-F0-9]{64}\z') {
+    throw 'FreeLLMAPI encryption key invalid; refusing to modify it.'
+  }
+  Write-Host '[OK] FreeLLMAPI enabled alongside OmniRoute.'
 }
 
+Push-Location $repoRoot
 try {
-  Push-Location $repoRoot
-  try {
-    & docker compose -f docker-compose.yml -f deploy/compose-home.yml config --quiet
-    if ($LASTEXITCODE -ne 0) { throw "Docker Compose validation failed." }
+  & docker compose -f docker-compose.yml -f deploy/compose-home.yml config --quiet
+  if ($LASTEXITCODE -ne 0) { throw 'Docker Compose validation failed.' }
 
-    # Pull, NEVER build, the version-pinned upstream OmniRoute runtime.
+  if ($useFreeLLMAPI) {
+    & docker compose -f docker-compose.yml -f deploy/compose-home.yml --profile freellmapi pull redis omniroute freellmapi
+  } else {
     & docker compose -f docker-compose.yml -f deploy/compose-home.yml pull redis omniroute
-    if ($LASTEXITCODE -ne 0) { throw "Could not pull prebuilt OmniRoute / Redis images." }
+  }
+  if ($LASTEXITCODE -ne 0) { throw 'Could not pull private gateways or Redis.' }
 
-    # These two small project services still build locally; OmniRoute does NOT.
-    & docker compose -f docker-compose.yml -f deploy/compose-home.yml build browser opendots
-    if ($LASTEXITCODE -ne 0) { throw "OpenDots or browser image build failed." }
+  & docker compose -f docker-compose.yml -f deploy/compose-home.yml build browser opendots
+  if ($LASTEXITCODE -ne 0) { throw 'OpenDots/browser build failed.' }
 
+  if ($useFreeLLMAPI) {
+    & docker compose -f docker-compose.yml -f deploy/compose-home.yml --profile freellmapi up -d --no-build redis omniroute freellmapi browser opendots
+  } else {
     & docker compose -f docker-compose.yml -f deploy/compose-home.yml up -d --no-build redis omniroute browser opendots
-    if ($LASTEXITCODE -ne 0) { throw "Docker Compose services did not start successfully." }
-    & docker compose -f docker-compose.yml -f deploy/compose-home.yml ps
-    if ($LASTEXITCODE -ne 0) { throw "Unable to read service status." }
-  } finally { Pop-Location }
-} catch {
-  Write-Warning "The secure .env has been kept for troubleshooting. Do NOT upload it."
-  throw
+  }
+  if ($LASTEXITCODE -ne 0) { throw 'Docker Compose services could not start.' }
+
+  & docker compose -f docker-compose.yml -f deploy/compose-home.yml ps
+  if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect Docker services.' }
+} finally {
+  Pop-Location
 }
-Write-Host "Local OpenDots backend should now be accessible at http://127.0.0.1:4310"
-Write-Host "The required Tailscale public origin is $backend"
-Write-Host "If not already enabled, Tailscale Funnel must expose local TCP port 4310."
-Write-Host "The separate Vercel environment OPENDOTS_BACKEND_ORIGIN must be $backend"
-Write-Host "Keep the PC and Docker Desktop running; provider accounts are still required for AI."
+Write-Host 'Local OpenDots backend: http://127.0.0.1:4310'
+Write-Host "Vercel frontend: $frontend"
+Write-Host "Tailscale Funnel: $backend"
+Write-Host 'Keep the PC, Docker and Funnel running for remote AI responses.'
