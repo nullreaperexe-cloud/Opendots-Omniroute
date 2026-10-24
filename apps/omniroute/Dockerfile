@@ -81,6 +81,8 @@ RUN set -eux; \
 
 # ── Builder ────────────────────────────────────────────────────────────────
 FROM base AS builder
+ARG OMNIROUTE_LOW_MEMORY_BUILD=0
+ENV OMNIROUTE_LOW_MEMORY_BUILD=${OMNIROUTE_LOW_MEMORY_BUILD}
 ARG NODE_DIST_URL=
 
 # No telemetry, anywhere. Disable Next.js's anonymous build-time telemetry
