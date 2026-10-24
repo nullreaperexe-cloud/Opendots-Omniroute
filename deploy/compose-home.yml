@@ -1,0 +1,7 @@
+# Overrides for Windows/PC-based Docker Compose + Tailscale Funnel.
+# Start only redis, omniroute, browser and opendots (NOT caddy).
+# The only host-accessible application port is loopback.
+services:
+  opendots:
+    ports:
+      - "127.0.0.1:4310:4310"
