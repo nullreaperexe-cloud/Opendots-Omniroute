@@ -40,6 +40,32 @@ $composeOverride = Join-Path $repoRoot "deploy/compose-home.yml"
 if (!(Test-Path $composeBase) -or !(Test-Path $composeOverride)) {
   throw "Missing Compose files; run this from the correct Git repository."
 }
+# Tailscale on Windows normally installs to Program Files without adding its
+# CLI directory to PATH. Handle that standard location as well as PATH installs.
+function Get-TailscaleExe {
+  $cmd = Get-Command "tailscale.exe" -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+  $locations = @()
+  if (${env:ProgramFiles}) {
+    $locations += (Join-Path ${env:ProgramFiles} "Tailscale\tailscale.exe")
+  }
+  if (${env:ProgramFiles(x86)}) {
+    $locations += (Join-Path ${env:ProgramFiles(x86)} "Tailscale\tailscale.exe")
+  }
+  foreach ($location in $locations) {
+    if (Test-Path -LiteralPath $location -PathType Leaf) { return $location }
+  }
+  throw "Tailscale CLI not found in PATH or Program Files. Install Tailscale for Windows first."
+}
+$tailscaleExe = Get-TailscaleExe
+$funnelStatus = (& $tailscaleExe funnel status | Out-String)
+if ($LASTEXITCODE -ne 0) {
+  throw "Unable to check Tailscale Funnel. Sign in to Tailscale and enable Funnel."
+}
+if ($funnelStatus -notlike "*$backend*") {
+  throw "Funnel is not pointing to expected URL $backend. Run Tailscale Funnel for port 4310 first."
+}
+Write-Host "Tailscale Funnel verified: $backend"
 if (!(Get-Command docker -ErrorAction SilentlyContinue)) {
   throw "Docker Desktop is required; install it and enable Linux containers/WSL2."
 }
