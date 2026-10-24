@@ -20,7 +20,7 @@
     "format": "prettier --write src tests *.json *.ts *.js index.html public .github Dockerfile \"compose*.yml\" deployment README.md docs .env.example --ignore-unknown",
     "check-format": "prettier --check src tests *.json *.ts *.js index.html public .github Dockerfile \"compose*.yml\" deployment README.md docs .env.example --ignore-unknown",
     "build:web": "vite build",
-    "verify:web": "node --import tsx --test tests/vercel-proxy.node.mjs tests/instant-chat.node.mjs tests/client-api-null.node.mjs tests/model-provider.node.mjs && tsc --noEmit && tsc -p tsconfig.server.json --noEmit && npm run build:web"
+    "verify:web": "node --import tsx --test tests/vercel-proxy.node.mjs tests/instant-chat.node.mjs tests/cloud-browser.node.mjs tests/client-api-null.node.mjs tests/model-provider.node.mjs && tsc --noEmit && tsc -p tsconfig.server.json --noEmit && npm run build:web"
   },
   "keywords": [],
   "author": "Atai Barkai",
