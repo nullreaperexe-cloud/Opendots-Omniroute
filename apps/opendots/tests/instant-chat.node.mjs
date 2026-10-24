@@ -61,3 +61,25 @@ test('filters out paid models, sends free-only chat with OIDC, and returns reply
   assert.equal(seen.length,2);
   assert.equal(out.headers['Cache-Control'],'no-store, private');
 });
+
+test('free model routing retries after model-specific 403 without selecting paid models', async () => {
+  process.env.VERCEL_OIDC_TOKEN = 'test-oidc-never-real';
+  const { default: freshHandler } = await import('../api/instant-chat.js?fallback-403-test');
+  const attempts = [];
+  globalThis.fetch = async (url, options) => {
+    if (url.endsWith('/models')) return new Response(JSON.stringify({data: [
+      {id:'free/denied',type:'language',context_window:9000,modalities:{input:['text'],output:['text']},pricing:{input:'0',output:'0'}},
+      {id:'free/available',type:'language',context_window:3000,modalities:{input:['text'],output:['text']},pricing:{input:'0',output:'0'}},
+      {id:'paid/never',type:'language',context_window:100000,modalities:{input:['text'],output:['text']},pricing:{input:'0.1',output:'0.1'}},
+    ]}),{status:200});
+    const body=JSON.parse(options.body);
+    attempts.push(body.model);
+    if (body.model === 'free/denied') return new Response('forbidden',{status:403});
+    return new Response(JSON.stringify({choices:[{message:{content:'Fallback worked'}}]}),{status:200});
+  };
+  const out=mockResponse();
+  await freshHandler(req([{role:'user',content:'test fallback'}]),out);
+  assert.equal(out.statusCode,200);
+  assert.equal(out.body.reply,'Fallback worked');
+  assert.deepEqual(attempts,['free/denied','free/available']);
+});
