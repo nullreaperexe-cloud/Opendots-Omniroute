@@ -13,7 +13,7 @@ jobs:
           cache: npm
           cache-dependency-path: apps/opendots/package-lock.json
       - run: node --test tests/*.test.mjs
-      - run: node --check 'apps/opendots/api/[...path].js'
+      - run: node --test apps/opendots/tests/vercel-proxy.node.mjs
       - run: npm ci --ignore-scripts
         working-directory: apps/opendots
       - run: npm run build:web
