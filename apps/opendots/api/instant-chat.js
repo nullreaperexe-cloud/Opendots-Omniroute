@@ -117,7 +117,7 @@ export default async function handler(request, response) {
       if (!upstream.ok) {
         // Do not surface provider internals or raw upstream errors to the browser.
         if ([401, 402, 403].includes(upstream.status)) {
-          return send(response, 503, { error: 'Vercel AI Gateway is not authorized or has no free access enabled for this project.' });
+          return send(response, 503, { error: 'Vercel AI Gateway is not authorized or has no free access enabled for this project.', gatewayStatus: upstream.status });
         }
         continue;
       }
