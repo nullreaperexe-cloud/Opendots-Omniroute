@@ -6,6 +6,7 @@ services:
     build:
       args:
         OMNIROUTE_LOW_MEMORY_BUILD: "1"
+        OMNIROUTE_BUILD_BACKEND_ONLY: "1"
         # Keep one V8 worker from reserving nearly the entire 7.5 GiB WSL VM.
         OMNIROUTE_BUILD_MEMORY_MB: "5120"
   opendots:
