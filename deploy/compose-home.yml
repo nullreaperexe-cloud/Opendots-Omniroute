@@ -2,6 +2,10 @@
 # Start only redis, omniroute, browser and opendots (NOT caddy).
 # The only host-accessible application port is loopback.
 services:
+  omniroute:
+    build:
+      args:
+        OMNIROUTE_LOW_MEMORY_BUILD: "1"
   opendots:
     ports:
       - "127.0.0.1:4310:4310"
