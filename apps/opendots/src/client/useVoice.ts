@@ -241,7 +241,12 @@ export function useVoice(
           event && typeof event === 'object' && 'error' in event
             ? String((event as { error: unknown }).error)
             : '';
-        if (error !== 'no-speech') setError('Microphone access failed. Check browser permissions.');
+        // A denied microphone or failed speech service must not keep
+        // automatically restarting the recognizer forever.
+        if (error !== 'no-speech' && error !== 'aborted') {
+          setError('Microphone or speech recognition failed. Check browser permissions and language support.');
+          void end();
+        }
       };
       recognition.onresult = (event) => {
         if (current.cancelled || current.processing || mutedRef.current) return;
