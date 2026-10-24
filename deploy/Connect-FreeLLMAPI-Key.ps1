@@ -70,7 +70,7 @@ Set-PrivateEnvValue 'FREELLMAPI_MODEL' $Model
 # The Docker service name works inside the OpenDots container; localhost:3001
 # is the Windows-side dashboard and does NOT resolve to FreeLLMAPI in Docker.
 Set-PrivateEnvValue 'FREELLMAPI_BASE_URL' 'http://freellmapi:3001/v1'
-[IO.File]::WriteAllLines($envFile, $lines, (New-Object Text.UTF8Encoding($false)))
+[IO.File]::WriteAllLines($envFile, $lines, ([System.Text.UTF8Encoding]::new($false)))
 $secret = $null
 Write-Host '[OK] FreeLLMAPI key saved to private .env; existing owner credentials preserved.'
 Push-Location $root
