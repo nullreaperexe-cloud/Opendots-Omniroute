@@ -18,15 +18,27 @@ References:
 
 ## Local runtime
 
-`deploy/compose-home.yml` publishes **only** `127.0.0.1:4310` on Windows; the private AI gateway and browser worker remain unexposed. To prevent port 80/443 bindings, **do not start Caddy** for the PC mode. Local services run with:
+`deploy/compose-home.yml` publishes OpenDots on `127.0.0.1:4310` and retains OmniRoute on its base Compose loopback-only `127.0.0.1:20128` binding. Neither is reachable directly from the internet; Tailscale Funnel only exposes OpenDots. To prevent host port 80/443 bindings, **do not start Caddy** for PC mode.
+
+**Permanent low-memory Docker solution:** Home Compose uses the upstream, version-pinned prebuilt image `diegosouzapw/omniroute:3.8.50` and `build: !reset null`. This explicitly removes the inherited heavy source `build:` declaration. Do **not** use `docker compose ... build omniroute` for this home profile; OmniRoute needs **no local Next.js build**. Versioned public images are published at https://hub.docker.com/r/diegosouzapw/omniroute/tags. This pins an older stable version rather than automatically following upstream updates; review and explicitly update the tag when needed.
+
+Use the repeatable bootstrap (preserves existing `.env`):
+
+```cmd
+cd /d C:\\Users\\Kanish\\opendots-omniroute
+powershell -NoProfile -ExecutionPolicy Bypass -File ".\\deploy\\Start-OpenDots-Home.ps1" -FunnelUrl "https://kanish.tail7524cf.ts.net" -VercelOrigin "https://opendots-omniroute.vercel.app"
+```
+
+Or start an already-bootstrapped stack directly (no compiling):
 
 ```powershell
-docker compose -f docker-compose.yml -f deploy/compose-home.yml up -d --build redis omniroute browser opendots
+docker compose -f docker-compose.yml -f deploy/compose-home.yml pull redis omniroute
+docker compose -f docker-compose.yml -f deploy/compose-home.yml up -d --no-build redis omniroute browser opendots
 ```
 
 Prepare a private `.env` first from `.env.example` with 32+ byte random owner/browser secret strings, set `AGENT_BACKEND_DOMAIN=localhost` (unused Caddy placeholder), set `APP_ORIGIN` to both the Vercel frontend and your exact Tailscale `https://<device>.<tailnet>.ts.net` origin, `WEB_SEARCH_PROVIDER=browser`, and make sure no production API key is committed. Tailscale's Windows program must be signed in to the Personal tailnet, with MagicDNS/HTTPS/Funnel enabled as documented. `tailscale funnel --bg 4310` publishes the local backend.
 
-A PowerShell bootstrap is supplied as `deploy/Start-OpenDots-Home.ps1`. It securely generates `.env` if one doesn't already exist; never overwrites existing secrets. It validates Docker and Tailscale CLI availability. It cannot sign up for Tailscale, enable protected machine authorization by itself, or control whether Windows/Docker keep running.
+A PowerShell bootstrap is supplied as `deploy/Start-OpenDots-Home.ps1`. It securely generates `.env` if one doesn't already exist, **reuses existing secrets** on later runs, validates APP_ORIGIN, checks Docker and Tailscale, pulls prebuilt OmniRoute and Redis, builds only the smaller OpenDots/browser services and starts them. It cannot sign up for Tailscale, enable protected machine authorization by itself, or control whether Windows/Docker keep running. The upstream image includes the OmniRoute dashboard even though its port remains loopback-only. Models, provider accounts, and runtime behavior must still be checked independently.
 
 ## Live frontend wiring
 
