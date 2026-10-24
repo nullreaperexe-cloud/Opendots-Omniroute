@@ -80,7 +80,7 @@ test('free model routing retries after model-specific 403 without selecting paid
     ]}),{status:200});
     const body=JSON.parse(options.body);
     attempts.push(body.model);
-    if (body.model === 'free/denied') return new Response('forbidden',{status:403});
+    if (body.model === 'free/denied') return new Response(JSON.stringify({error:{type:'model_not_available',message:'Model is not available on the free tier'}}),{status:403});
     return new Response(JSON.stringify({choices:[{message:{content:'Fallback worked'}}]}),{status:200});
   };
   const out=mockResponse();
