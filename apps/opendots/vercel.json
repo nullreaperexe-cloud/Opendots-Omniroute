@@ -4,5 +4,13 @@
   "buildCommand": "npm run build:web",
   "outputDirectory": "dist/client",
   "installCommand": "npm ci --ignore-scripts",
-  "regions": ["bom1"]
+  "regions": [
+    "bom1"
+  ],
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/proxy?__opendots_path=:path*"
+    }
+  ]
 }
