@@ -1,18 +1,7 @@
-# Windows/PC mode: use the official versioned OmniRoute image.
-# This completely removes the multi-GB Next.js build from the home PC.
-# No direct public ports: host-facing app endpoints bind to loopback only.
-# Tailscale Funnel publishes ONLY the OpenDots API (127.0.0.1:4310).
+# Windows/PC Compose override: OpenDots API on loopback only.
+# OmniRoute is no longer used or built.
+# FreeLLMAPI may be enabled with the optional freellmapi profile.
 services:
-  omniroute:
-    # Erase the inherited source-build declaration, otherwise compose may
-    # still attempt a memory-heavy local Next.js compile.
-    build: !reset null
-    image: diegosouzapw/omniroute:3.8.50
-    environment:
-      OMNIROUTE_MEMORY_MB: "2048"
-      # Enforce actual Endpoint API keys after running Connect-OmniRoute-Key.ps1.
-      # Default remains non-breaking for users who have not created a key yet.
-      REQUIRE_API_KEY: ${OMNIROUTE_REQUIRE_API_KEY:-false}
   opendots:
     ports:
       - "127.0.0.1:4310:4310"

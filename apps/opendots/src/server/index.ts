@@ -32,8 +32,7 @@ const workspace = new WorkspaceStore(
   database,
   process.env.OWNER_ID ?? 'opendots-owner',
 );
-// FreeLLMAPI wins only when an explicit key is configured; otherwise retain
-// the existing OmniRoute / OpenRouter / OpenAI behavior.
+// Prefer FreeLLMAPI when configured; otherwise use a hosted OpenRouter/OpenAI key.
 const modelGateway = modelGatewayFromEnv(process.env);
 const config: PlatformConfig = {
   intelligenceKey: intelligenceApiKeyFromEnv(process.env),

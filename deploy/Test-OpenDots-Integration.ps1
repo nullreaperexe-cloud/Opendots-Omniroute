@@ -26,11 +26,10 @@ function ValueFor([string]$name, [switch]$Optional) {
 }
 $owner = ValueFor "OWNER_TOKEN"
 $freeKey = ValueFor "FREELLMAPI_API_KEY" -Optional
-$usingFreeLLMAPI = ![string]::IsNullOrWhiteSpace($freeKey)
-$gatewayName = if ($usingFreeLLMAPI) { "FreeLLMAPI" } else { "OmniRoute" }
-$gatewayKey = if ($usingFreeLLMAPI) { $freeKey } else { ValueFor "OMNIROUTE_API_KEY" }
-$gatewayPort = if ($usingFreeLLMAPI) { 3001 } else { 20128 }
-$gatewayModelName = if ($usingFreeLLMAPI) { "FREELLMAPI_MODEL" } else { "OMNIROUTE_MODEL" }
+$gatewayName = "FreeLLMAPI"
+$gatewayKey = $freeKey
+$gatewayPort = 3001
+$gatewayModelName = "FREELLMAPI_MODEL"
 if (!$owner -or $owner.Length -lt 24) { throw "OWNER_TOKEN is missing or short." }
 foreach ($originText in @($VercelOrigin, $FunnelOrigin)) {
   $originUrl = [uri]$originText
@@ -95,7 +94,7 @@ Check "$gatewayName models" "http://127.0.0.1:$gatewayPort/v1/models" $gatewayKe
 
 if ($TestCompletion) {
   $model = ValueFor $gatewayModelName -Optional
-  if (!$model) { $model = if ($usingFreeLLMAPI) { "auto:smart" } else { "auto" } }
+  if (!$model) { $model = "auto:smart" }
   $body = @{
     model = $model
     messages = @(@{ role = "user"; content = "Hello. Reply with one short sentence in Hindi." })

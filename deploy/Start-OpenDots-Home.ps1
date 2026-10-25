@@ -3,7 +3,7 @@
 Local free Windows host bootstrap. Run only on your OWN trusted Windows machine
 after installing Docker Desktop and signing into Tailscale Personal.
 The script NEVER buys cloud services, deploys to Vercel, prints owner secrets,
-or publicly exposes the OmniRoute dashboard.
+or publicly exposes the FreeLLMAPI dashboard.
 #>
 [CmdletBinding()]
 param(
@@ -91,13 +91,9 @@ if (Test-Path -LiteralPath $envFile -PathType Leaf) {
 } else {
   $ownerToken = New-Secret
   $browserSecret = New-Secret
-  $bridgeSecret = New-Secret
   $envText = @"
 OWNER_TOKEN=$ownerToken
 BROWSER_SECRET=$browserSecret
-OMNIROUTE_WS_BRIDGE_SECRET=$bridgeSecret
-OMNIROUTE_API_KEY=private-internal-router
-OMNIROUTE_MODEL=auto
 AGENT_BACKEND_DOMAIN=localhost
 APP_ORIGIN=$frontend,$backend
 WEB_SEARCH_PROVIDER=browser
@@ -108,7 +104,7 @@ WEB_SEARCH_PROVIDER=browser
 
 
 # Only start FreeLLMAPI when an actual unified key is configured.
-# Existing OmniRoute installations remain unaffected.
+# FreeLLMAPI remains an optional local Docker profile.
 $freeLines = @(Get-Content -LiteralPath $envFile |
   Where-Object { $_.StartsWith('FREELLMAPI_API_KEY=') })
 if ($freeLines.Count -gt 1) {
@@ -128,7 +124,7 @@ if ($useFreeLLMAPI) {
   if ($encryption -notmatch '^[a-fA-F0-9]{64}\z') {
     throw 'FreeLLMAPI encryption key invalid; refusing to modify it.'
   }
-  Write-Host '[OK] FreeLLMAPI enabled alongside OmniRoute.'
+  Write-Host '[OK] FreeLLMAPI is the selected AI router.'
 }
 
 Push-Location $repoRoot
@@ -137,9 +133,9 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Docker Compose validation failed.' }
 
   if ($useFreeLLMAPI) {
-    & docker compose -f docker-compose.yml -f deploy/compose-home.yml --profile freellmapi pull redis omniroute freellmapi
+    & docker compose -f docker-compose.yml -f deploy/compose-home.yml --profile freellmapi pull redis freellmapi
   } else {
-    & docker compose -f docker-compose.yml -f deploy/compose-home.yml pull redis omniroute
+    & docker compose -f docker-compose.yml -f deploy/compose-home.yml pull redis
   }
   if ($LASTEXITCODE -ne 0) { throw 'Could not pull private gateways or Redis.' }
 
@@ -147,9 +143,9 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'OpenDots/browser build failed.' }
 
   if ($useFreeLLMAPI) {
-    & docker compose -f docker-compose.yml -f deploy/compose-home.yml --profile freellmapi up -d --no-build redis omniroute freellmapi browser opendots
+    & docker compose -f docker-compose.yml -f deploy/compose-home.yml --profile freellmapi up -d --no-build redis freellmapi browser opendots
   } else {
-    & docker compose -f docker-compose.yml -f deploy/compose-home.yml up -d --no-build redis omniroute browser opendots
+    & docker compose -f docker-compose.yml -f deploy/compose-home.yml up -d --no-build redis browser opendots
   }
   if ($LASTEXITCODE -ne 0) { throw 'Docker Compose services could not start.' }
 

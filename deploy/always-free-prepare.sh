@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prepare a self-hosted OpenDots/OmniRoute stack on an eligible free VM.
+# Prepare a self-hosted OpenDots/FreeLLMAPI stack on an eligible free VM.
 # This script does NOT create or upgrade a cloud account, purchase anything,
 # install Docker, create DNS records, or change a Vercel environment.
 set -euo pipefail
@@ -38,14 +38,13 @@ fi
 umask 077
 owner_token=$(openssl rand -hex 32)
 browser_secret=$(openssl rand -hex 32)
-bridge_secret=$(openssl rand -hex 32)
 cat > .env <<EOF
 # Generated privately on the host. Never upload/commit/share this file.
 OWNER_TOKEN=$owner_token
 BROWSER_SECRET=$browser_secret
-OMNIROUTE_WS_BRIDGE_SECRET=$bridge_secret
-OMNIROUTE_API_KEY=private-internal-router
-OMNIROUTE_MODEL=auto
+FREELLMAPI_API_KEY=
+FREELLMAPI_MODEL=auto:smart
+FREELLMAPI_BASE_URL=http://freellmapi:3001/v1
 AGENT_BACKEND_DOMAIN=$backend_dns
 APP_ORIGIN=$vercel_origin,https://$backend_dns
 WEB_SEARCH_PROVIDER=browser
@@ -59,4 +58,5 @@ echo "Private secrets generated. Building the 5-service backend on THIS host."
 docker compose up -d --build
 docker compose ps
 echo "Backend origin to use in Vercel after HTTPS is verified: https://$backend_dns"
-echo "Access provider setup only through an SSH tunnel. Never expose port 20128 publicly."
+echo "Configure FreeLLMAPI unified key and start its Compose profile before AI chat."
+echo "Keep the FreeLLMAPI admin dashboard private."

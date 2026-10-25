@@ -6,18 +6,16 @@ import { join, resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const text = (path) => readFileSync(join(root, path), 'utf8');
 
-test('both original code trees remain present', () => {
+test('OpenDots remains and obsolete OmniRoute app is removed', () => {
   assert.ok(existsSync(join(root, 'apps/opendots/src/server/index.ts')));
-  assert.ok(existsSync(join(root, 'apps/omniroute/src')));
-  assert.ok(existsSync(join(root, 'apps/omniroute/LICENSE')));
+  assert.equal(existsSync(join(root, 'apps/omniroute')), false);
 });
 
-test('FreeLLMAPI is optional and the original model providers remain available', () => {
+test('FreeLLMAPI and optional hosted providers remain available', () => {
   const selection = text('apps/opendots/src/server/model-provider.ts');
   const index = text('apps/opendots/src/server/index.ts');
   for (const variable of [
     'FREELLMAPI_API_KEY', 'FREELLMAPI_MODEL', 'FREELLMAPI_BASE_URL',
-    'OMNIROUTE_API_KEY', 'OMNIROUTE_MODEL', 'OMNIROUTE_BASE_URL',
     'OPENROUTER_API_KEY', 'OPENAI_API_KEY',
   ]) {
     assert.ok(selection.includes(variable), variable);
@@ -38,13 +36,14 @@ test('CopilotKit runtime and hidden inspector are retained', () => {
 test('Docker services use private gateways and persistent data volumes', () => {
   const yaml = text('docker-compose.yml');
   for (const fragment of [
-    '127.0.0.1:20128:20128', 'http://omniroute:20128/v1',
     'FREELLMAPI_API_KEY', 'http://freellmapi:3001/v1',
     '127.0.0.1:3001:3001', 'freellmapi-data:',
     'opendots-data:/data', 'browser-link', 'internal: true',
   ]) {
     assert.ok(yaml.includes(fragment), fragment);
   }
+  assert.ok(!yaml.includes('build:\n      context: ./apps/omniroute'));
+  assert.ok(!yaml.includes('depends_on: [omniroute]'));
 });
 
 test('Vercel forwards nested /api paths directly to HTTPS Funnel', () => {

@@ -64,15 +64,11 @@ local base URL `http://127.0.0.1:3001/v1` in
 `apps/opendots/.env`. For the existing **Docker** home deployment,
 the root `.env` uses `http://freellmapi:3001/v1`, **not localhost**.
 
-## Existing OmniRoute / rollback
+## Provider migration
 
-The existing OmniRoute, Redis, browser, owner token, SQLite and volumes
-remain untouched. `FREELLMAPI_API_KEY` takes priority **only if nonempty**.
-To switch back, clear `FREELLMAPI_API_KEY=` in the private root `.env`,
-then run `docker compose -f docker-compose.yml -f deploy/compose-home.yml
-up -d --no-build --no-deps opendots`. There is no database wipe.
-The Windows home bootstrap conditionally starts the FreeLLMAPI service only
-when the FreeLLMAPI key is configured.
+OmniRoute was removed from the apps directory. OpenDots now uses a
+FreeLLMAPI unified key when configured; OpenRouter/OpenAI remain
+optional hosted fallbacks.
 
 ## Limitations
 

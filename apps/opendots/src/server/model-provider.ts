@@ -6,7 +6,7 @@
  * not a hosted free-inference service. Configure provider keys in its dashboard.
  * Never expose this server-side key through browser/Vite configuration.
  */
-export type ModelGatewayName = 'freellmapi' | 'omniroute' | 'openrouter' | 'openai';
+export type ModelGatewayName = 'freellmapi' | 'openrouter' | 'openai';
 export interface ModelGateway {
   provider: ModelGatewayName;
   apiKey?: string;
@@ -25,19 +25,6 @@ export function modelGatewayFromEnv(
       apiKey: freeKey,
       model: value(env.FREELLMAPI_MODEL) ?? 'auto:smart',
       baseUrl: value(env.FREELLMAPI_BASE_URL) ?? 'http://127.0.0.1:3001/v1',
-    };
-  }
-
-  const omniKey = value(env.OMNIROUTE_API_KEY);
-  if (omniKey) {
-    return {
-      provider: 'omniroute',
-      apiKey: omniKey,
-      model: value(env.OMNIROUTE_MODEL) ?? 'auto',
-      baseUrl: value(env.OMNIROUTE_BASE_URL)
-        ?? (value(env.OMNIROUTE_HOSTPORT)
-          ? `http://${value(env.OMNIROUTE_HOSTPORT)}/v1`
-          : 'http://127.0.0.1:20128/v1'),
     };
   }
 

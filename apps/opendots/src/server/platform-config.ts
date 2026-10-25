@@ -80,8 +80,8 @@ export function setupStatus(
   activationFailed = false,
 ): SetupStatus {
   const missing = [
-    !config.apiKey && 'FREELLMAPI_API_KEY (or OMNIROUTE_API_KEY / OPENROUTER_API_KEY / OPENAI_API_KEY)',
-    !config.model && 'FREELLMAPI_MODEL (or OMNIROUTE_MODEL / OPENROUTER_MODEL / OPENAI_MODEL)',
+    !config.apiKey && 'FREELLMAPI_API_KEY (or OPENROUTER_API_KEY / OPENAI_API_KEY)',
+    !config.model && 'FREELLMAPI_MODEL (or OPENROUTER_MODEL / OPENAI_MODEL)',
   ].filter((item): item is string => !!item);
   const declaredSlack = !!(
     config.slackChannel &&

@@ -1,3 +1,4 @@
+# Preserve legacy Compose project identity so existing OpenDots data volumes remain attached.
 name: opendots-omniroute
 
 services:
@@ -13,34 +14,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  omniroute:
-    build:
-      context: ./apps/omniroute
-      target: runner-base
-    restart: unless-stopped
-    stop_grace_period: 40s
-    environment:
-      HOSTNAME: 0.0.0.0
-      PORT: "20128"
-      DATA_DIR: /app/data
-      REDIS_URL: redis://redis:6379
-      # Only reachable on private Compose network and localhost SSH tunnel.
-      REQUIRE_API_KEY: "false"
-      NEXT_TELEMETRY_DISABLED: "1"
-      OMNIROUTE_WS_BRIDGE_SECRET: ${OMNIROUTE_WS_BRIDGE_SECRET:-}
-    volumes:
-      - omniroute-data:/app/data
-    ports:
-      - "127.0.0.1:20128:20128"
-    networks:
-      - ai-link
-      - provider-egress
-    depends_on:
-      redis:
-        condition: service_healthy
-    security_opt: ["no-new-privileges:true"]
-    cap_drop: ["ALL"]
 
   # Optional FreeLLMAPI gateway. Starts only with --profile freellmapi or an
   # explicit "up freellmapi". Binds the dashboard to Windows loopback ONLY.
@@ -84,11 +57,7 @@ services:
       OWNER_ID: ${OWNER_ID:-opendots-owner}
       OWNER_TOKEN: ${OWNER_TOKEN:?Set a 24+ character OWNER_TOKEN}
       APP_ORIGIN: ${APP_ORIGIN:?Set your Vercel and backend origins}
-      OMNIROUTE_API_KEY: ${OMNIROUTE_API_KEY:-private-internal-router}
-      OMNIROUTE_MODEL: ${OMNIROUTE_MODEL:-auto}
-      OMNIROUTE_BASE_URL: http://omniroute:20128/v1
-      # An explicit FreeLLMAPI key takes precedence in the OpenDots server.
-      # This is a PRIVATE Docker hostname, never a browser-side endpoint.
+      # FreeLLMAPI uses the private Docker service when enabled; configure its unified key.
       FREELLMAPI_API_KEY: ${FREELLMAPI_API_KEY:-}
       FREELLMAPI_MODEL: ${FREELLMAPI_MODEL:-auto:smart}
       FREELLMAPI_BASE_URL: ${FREELLMAPI_BASE_URL:-http://freellmapi:3001/v1}
@@ -113,7 +82,6 @@ services:
       - browser-link
       - app-egress
       - public-web
-    depends_on: [omniroute]
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
 
@@ -163,7 +131,6 @@ networks:
 
 volumes:
   redis-data:
-  omniroute-data:
   freellmapi-data:
   opendots-data:
   caddy-data:
