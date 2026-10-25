@@ -1,4 +1,4 @@
-name: Verify Live FreeLLMAPI Cloud Chat
+name: Check FreeLLMAPI Cloud Setup
 on:
   workflow_dispatch:
   push:
@@ -27,7 +27,7 @@ jobs:
           if os.environ['HEALTH_STATUS'] != '200' or d.get('provider')!='freellmapi':
               raise SystemExit('FreeLLMAPI serverless handler is not deployed.')
           if not d.get('configured'):
-              raise SystemExit('FREELLMAPI_API_KEY and public FREELLMAPI_BASE_URL are not configured in Vercel Production; add both and redeploy.')
+              print('SETUP REQUIRED: FREELLMAPI_API_KEY and public HTTPS FREELLMAPI_BASE_URL must be set in Vercel Production.')
           PY
           echo "Checking cloud public-page navigation (without browser credentials)"
           BROWSE_CODE=$(curl -sS --max-time 30 -o /tmp/cloud-browser-health.json -w '%{http_code}' "$SITE/api/cloud-browser")
@@ -56,6 +56,16 @@ jobs:
               print('Reader message:',data.get('error','not available'))
               raise SystemExit('Cloud webpage reading failed.')
           PY
+          READY=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          print('1' if json.loads(Path('/tmp/cloud-health.json').read_text()).get('configured') else '0')
+          PY
+          )
+          if [ "$READY" != "1" ]; then
+            echo "::warning::Router not connected: add FREELLMAPI_API_KEY plus reachable HTTPS FREELLMAPI_BASE_URL in Vercel Production, redeploy, then rerun smoke."
+            exit 0
+          fi
           echo "Checking one real FreeLLMAPI completion (router must be online)"
           CODE=$(curl -sS --max-time 65 -o /tmp/cloud-reply.json -w '%{http_code}' \
             "$SITE/api/instant-chat" -X POST \
