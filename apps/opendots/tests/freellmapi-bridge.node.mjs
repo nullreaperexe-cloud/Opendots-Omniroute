@@ -5,7 +5,7 @@ import {bridgeHandler} from '../../../deploy/freellmapi-bridge.mjs';
 const oldFetch=globalThis.fetch;
 after(()=>{globalThis.fetch=oldFetch;});
 function makeRequest(path,method='GET',body='',headers={}){
-  const req=Readable.from(body?[body]:[]);
+  const req=Readable.from(body?[Buffer.from(body, 'utf8')]:[]);
   req.method=method;
   req.url=path;
   req.headers=headers;
