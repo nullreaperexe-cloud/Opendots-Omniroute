@@ -7,7 +7,8 @@
  * FreeLLMAPI authenticates the unified API key on every inference call.
  */
 import { createServer } from 'node:http';
-import { setTimeout as sleep } from 'node:timers/promises';
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 
 const LISTEN_HOST='127.0.0.1';
 const LISTEN_PORT=31416;
@@ -87,7 +88,7 @@ export async function bridgeHandler(req,res){
   }
 }
 
-if(import.meta.url===new URL('file://'+process.argv[1]?.replaceAll('\\','/')).href){
+if(process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   const server=createServer(bridgeHandler);
   server.listen(LISTEN_PORT,LISTEN_HOST,()=>{
     console.log('OpenDots protected FreeLLMAPI chat bridge listening on localhost:'+LISTEN_PORT);
