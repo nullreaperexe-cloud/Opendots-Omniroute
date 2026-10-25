@@ -263,7 +263,7 @@ export function CloudOriginal({ onFullWorkspace }: { onFullWorkspace: () => void
           aria-label="Toggle navigation"><PanelLeft size={18}/></button>
         <div className="breadcrumbs"><span>Dots</span><span>/</span><strong>{view==='chat'?DOT.name:view==='activity'?'Activity':view==='memories'?'Memories':'Settings'}</strong></div>
         <div className="top-actions">
-          <span className="mode-badge">{connected?'GROQ CONNECTED':'GROQ CLOUD'}</span>
+          <span className="mode-badge">{connected?'FREELLMAPI CONNECTED':'FREELLMAPI'}</span>
           <button className="icon-button" aria-label={browserOpen?'Hide computer':'Show computer'}
             aria-expanded={browserOpen} onClick={()=>setBrowserOpen(!browserOpen)}><Monitor size={18}/></button>
         </div>
@@ -325,7 +325,7 @@ export function CloudOriginal({ onFullWorkspace }: { onFullWorkspace: () => void
                   else setPrompt(text);
                 }}>{text}<ArrowUpRight size={12}/></button>)}
             </div>
-            <div className="connection-note">Groq cloud chat · PC and Docker not required
+            <div className="connection-note">FreeLLMAPI unified router · Router must be online
               <button className="text-button" onClick={()=>changeTab('settings')}>Setup details</button>
             </div>
             <button className="cloud-start-call" aria-label="Start voice call"
@@ -340,12 +340,13 @@ export function CloudOriginal({ onFullWorkspace }: { onFullWorkspace: () => void
             <h1>{view==='activity'?'A little follow-through.':view==='memories'?'Memories':'Settings & setup'}</h1>
             <p>{view==='activity'?'Autonomous scheduled tasks need an always-on worker.':
               view==='memories'?'Chat history is saved only in this browser.':
-              'Cloud chat runs on Vercel with Groq.'}</p>
+              'Cloud chat uses FreeLLMAPI unified API. Your FreeLLMAPI router must be reachable over HTTPS.'}</p>
           </div>
         </div>
         {view==='settings'?<section className="cloud-feature-details">
           <h3>Cloud features</h3>
-          <p>AI chat: GroqCloud. Voice calls: browser speech recognition + speaker audio (Chrome recommended). Web research: public HTTPS page reader from Vercel.</p>
+          <p>AI chat: your FreeLLMAPI unified router (online HTTPS address required). Voice calls: browser speech recognition + speaker audio (Chrome recommended). Web research: public HTTPS page reader from Vercel.</p>
+          <p>The unified key and router Base URL belong in the Vercel project Environment Variables. They cannot connect to your laptop's 127.0.0.1 address from Vercel.</p>
           <p>The full original OpenDots computer, Spaces, persistent Dots, and schedules still need a separately running backend.</p>
           <button className="primary" onClick={onFullWorkspace}>Open full original OpenDots workspace (requires backend)</button>
         </section>: <div className="large-empty">
