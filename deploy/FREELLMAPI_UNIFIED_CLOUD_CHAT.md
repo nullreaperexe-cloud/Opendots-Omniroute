@@ -5,6 +5,39 @@ provider. Its Unified API Key authenticates the FreeLLMAPI service you run.
 You must also configure free provider credentials inside the FreeLLMAPI
 dashboard's Providers tab.
 
+## No-Docker one-click setup for your FreeLLMAPI Windows desktop
+
+If the FreeLLMAPI dashboard on your own Windows computer says
+`http://127.0.0.1:31415/v1`, Vercel cannot reach it directly.
+This repo has a **restricted local bridge** (only chat completions; never
+admin/dashboard) and a preconfigured Tailscale Funnel route.
+
+1. On your PC, open the FreeLLMAPI desktop app and sign in to Tailscale.
+2. Download or `git pull` the latest OpenDots GitHub repo.
+3. In Windows Explorer, **double-click**:
+   `deploy/Connect-FreeLLMAPI.cmd`.
+   There are no commands to type and Docker is not required.
+4. The launcher checks both apps and starts the restricted bridge on
+   `127.0.0.1:31416`. It mounts a separate Tailscale Funnel path
+   `/freellmapi` without changing the existing root route for OpenDots.
+5. In Vercel Production set:
+   - `FREELLMAPI_API_KEY` = your **full private Unified API Key**
+   - `FREELLMAPI_BASE_URL` =
+     `https://kanish.tail7524cf.ts.net/freellmapi/v1`
+   - optional `FREELLMAPI_MODEL=auto`
+6. Save, then redeploy Production and send a test chat message.
+
+The bridge passes the Unified Key through to **your local FreeLLMAPI**
+for authentication and **does not** store it. Your dashboard and other
+administrative routes are not exposed through the bridge. Tailscale Funnel
+itself creates a public entry point, so keep your Unified Key secret. Always
+review Tailscale configuration and avoid exposing the desktop app directly.
+
+**PC must be ON:** The launcher does not turn local FreeLLMAPI into a hosted
+cloud service. When PC/FreeLLMAPI/Tailscale is off, Groq-free OpenDots chat
+will remain offline; use a hosted provider or another always-on machine for
+24/7 access.
+
 ## Secure one-time setup in Vercel (no commands on the device viewing website)
 
 1. Open the locally running FreeLLMAPI app → Keys → Unified API key → Copy.
