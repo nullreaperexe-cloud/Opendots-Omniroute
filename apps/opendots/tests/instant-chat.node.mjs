@@ -1,144 +1,156 @@
-import test, { before, after } from 'node:test';
+import test,{before,after} from 'node:test';
 import assert from 'node:assert/strict';
-import handler, { classifyGroqFailure } from '../api/instant-chat.js';
+import handler,{validateFreeLLMAPIBaseUrl,classifyFreeLLMAPIFailure}
+  from '../api/instant-chat.js';
 
-const originalFetch = globalThis.fetch;
-const existingKey = process.env.GROQ_API_KEY;
-const existingModel = process.env.GROQ_MODEL;
-// Unit tests must never use, display, or send real credentials from Vercel.
-before(() => { delete process.env.GROQ_API_KEY; delete process.env.GROQ_MODEL; });
-after(() => {
-  globalThis.fetch = originalFetch;
-  if (existingKey === undefined) delete process.env.GROQ_API_KEY;
-  else process.env.GROQ_API_KEY = existingKey;
-  if (existingModel === undefined) delete process.env.GROQ_MODEL;
-  else process.env.GROQ_MODEL = existingModel;
+const saved={
+  key:process.env.FREELLMAPI_API_KEY,
+  url:process.env.FREELLMAPI_BASE_URL,
+  model:process.env.FREELLMAPI_MODEL,
+  groq:process.env.GROQ_API_KEY,
+};
+const originalFetch=globalThis.fetch;
+before(()=>{
+  delete process.env.FREELLMAPI_API_KEY;
+  delete process.env.FREELLMAPI_BASE_URL;
+  delete process.env.FREELLMAPI_MODEL;
 });
-
-const mockResponse = () => ({
-  statusCode: 0, headers: {}, body: null,
-  status(n) { this.statusCode = n; return this; },
-  setHeader(k,v) { this.headers[k] = v; return this; },
-  json(v) { this.body = v; return this; },
+after(()=>{
+  globalThis.fetch=originalFetch;
+  const vals={FREELLMAPI_API_KEY:saved.key,FREELLMAPI_BASE_URL:saved.url,FREELLMAPI_MODEL:saved.model};
+  for(const [k,v]of Object.entries(vals))if(v===undefined)delete process.env[k];else process.env[k]=v;
 });
-const req = (messages, overrides = {}) => ({
-  method: 'POST',
-  headers: { host: 'opendots-omniroute.vercel.app', origin: 'https://opendots-omniroute.vercel.app' },
-  body: { messages },
-  ...overrides,
+const res=()=>({
+  statusCode:0,headers:{},body:null,
+  status(n){this.statusCode=n;return this;},
+  setHeader(k,v){this.headers[k]=v;return this;},
+  json(o){this.body=o;return this;},
 });
-
-test('status endpoint truthfully advertises Groq and no running local backend', async () => {
-  const out = mockResponse();
-  await handler({ method: 'GET', headers: {} }, out);
-  assert.equal(out.statusCode, 200);
-  assert.equal(out.body.provider, 'groq');
-  assert.equal(out.body.cloudBrowser, false);
-  assert.equal(out.body.configured, false);
+const req=(messages,other={})=>({
+  method:'POST',
+  headers:{host:'opendots-omniroute.vercel.app',
+    origin:'https://opendots-omniroute.vercel.app'},
+  body:{messages},...other,
+});
+test('health endpoint identifies FreeLLMAPI rather than Groq and never returns a key',async()=>{
+  const out=res();
+  await handler({method:'GET',headers:{}},out);
+  assert.equal(out.statusCode,200);
+  assert.equal(out.body.provider,'freellmapi');
+  assert.equal(out.body.configured,false);
+  assert.equal(out.body.keyConfigured,false);
+  assert.equal(out.body.endpointConfigured,false);
+  assert.equal(out.body.routerOnline,'not_checked');
   assert.ok(!JSON.stringify(out.body).includes('Bearer'));
 });
-test('cannot use old Vercel AI Gateway key in place of a Groq key', async () => {
-  process.env.AI_GATEWAY_API_KEY = 'old-key-unit-test';
-  const out = mockResponse();
-  await handler(req([{role:'user',content:'hello'}]),out);
+test('local addresses, HTTP, private IPs, bad paths or credentials are rejected',()=>{
+  for(const url of [
+    'http://127.0.0.1:31415/v1',
+    'https://localhost:31415/v1',
+    'https://127.0.0.1/v1',
+    'https://192.168.1.2/v1',
+    'https://[::1]/v1',
+    'http://freellmapi.example.com/v1',
+    'https://user:pass@router.example.net/v1',
+    'https://router.example.net/admin',
+    'https://router.example.net/v1?api_key=secret',
+  ])assert.throws(()=>validateFreeLLMAPIBaseUrl(url),undefined,url);
+  assert.equal(validateFreeLLMAPIBaseUrl('https://router.example.net/v1/'),
+    'https://router.example.net/v1');
+});
+test('Groq and old AI gateway keys do not count as FreeLLMAPI credentials',async()=>{
+  process.env.GROQ_API_KEY='gsk_test';
+  process.env.AI_GATEWAY_API_KEY='test_old';
+  const out=res();
+  await handler(req([{role:'user',content:'Hello'}]),out);
   assert.equal(out.statusCode,503);
-  assert.equal(out.body.reason,'groq_key_missing');
+  assert.equal(out.body.reason,'freellmapi_key_missing');
+  delete process.env.GROQ_API_KEY;
   delete process.env.AI_GATEWAY_API_KEY;
 });
-test('missing key produces clear activation instructions without network calls', async () => {
-  delete process.env.GROQ_API_KEY;
-  globalThis.fetch = async () => { throw new Error('Should not call network'); };
-  const out = mockResponse();
+test('missing unified key produces actionable error without external requests',async()=>{
+  globalThis.fetch=()=>{throw new Error('unexpected provider call');};
+  const out=res();
   await handler(req([{role:'user',content:'hi'}]),out);
   assert.equal(out.statusCode,503);
-  assert.match(out.body.error,/GROQ_API_KEY/);
-  assert.equal(out.body.reason,'groq_key_missing');
+  assert.match(out.body.error,/FREELLMAPI_API_KEY/);
+  assert.equal(out.body.reason,'freellmapi_key_missing');
 });
-test('blocks cross-origin browser requests', async () => {
-  const out = mockResponse();
-  await handler(req([{role:'user',content:'hello'}],{
-    headers:{host:'opendots-omniroute.vercel.app',origin:'https://evil.example'}
+test('key alone does not connect to local 127.0.0.1 router from Vercel',async()=>{
+  process.env.FREELLMAPI_API_KEY='freellmapi-fake-key';
+  process.env.FREELLMAPI_BASE_URL='http://127.0.0.1:31415/v1';
+  const out=res();
+  await handler(req([{role:'user',content:'hi'}]),out);
+  assert.equal(out.statusCode,503);
+  assert.equal(out.body.reason,'freellmapi_invalid_url');
+  assert.match(out.body.error,/127\.0\.0\.1/);
+});
+test('blocks cross-site requests before contacting the router',async()=>{
+  const out=res();
+  await handler(req([{role:'user',content:'test'}],{
+    headers:{host:'opendots-omniroute.vercel.app',origin:'https://other.example.net'},
   }),out);
   assert.equal(out.statusCode,403);
 });
-test('blocks oversized and invalid history', async () => {
-  const out = mockResponse();
-  await handler(req([{role:'user',content:'a'.repeat(2500)}]),out);
+test('validates chat history and refuses unbounded messages',async()=>{
+  const out=res();
+  await handler(req([{role:'user',content:'x'.repeat(2401)}]),out);
   assert.equal(out.statusCode,400);
 });
-
-test('Groq completion returns user-visible AI answer and never sends key to browser', async () => {
-  process.env.GROQ_API_KEY = 'gsk_fictional-test-key';
-  delete process.env.GROQ_MODEL;
-  let calls = 0;
-  globalThis.fetch = async (url, options) => {
-    calls++;
-    assert.equal(url,'https://api.groq.com/openai/v1/chat/completions');
-    assert.equal(options.headers.Authorization,'Bearer gsk_fictional-test-key');
-    const body = JSON.parse(options.body);
-    assert.equal(body.model, 'openai/gpt-oss-120b');
-    assert.equal(body.messages.at(-1).content, 'Hello');
-    return new Response(JSON.stringify({
-      choices: [{message:{content:'Hello from GroqCloud'}}],
-    }),{status:200});
+test('calls only configured FreeLLMAPI host with unified bearer secret',async()=>{
+  process.env.FREELLMAPI_API_KEY='freellmapi-fake-test-secret';
+  process.env.FREELLMAPI_BASE_URL='https://router.example.net/v1';
+  process.env.FREELLMAPI_MODEL='auto';
+  let count=0;
+  globalThis.fetch=async(url,options)=>{
+    count++;
+    assert.equal(url,'https://router.example.net/v1/chat/completions');
+    assert.equal(options.headers.Authorization,'Bearer freellmapi-fake-test-secret');
+    const payload=JSON.parse(options.body);
+    assert.equal(payload.model,'auto');
+    assert.equal(payload.messages.at(-1).content,'Hello');
+    return new Response(JSON.stringify({model:'model-served',choices:[{message:{content:'Namaste'}}]}),{status:200});
   };
-  const out=mockResponse();
+  const out=res();
   await handler(req([{role:'user',content:'Hello'}]),out);
   assert.equal(out.statusCode,200);
-  assert.equal(out.body.reply,'Hello from GroqCloud');
-  assert.equal(out.body.model,'openai/gpt-oss-120b');
-  assert.equal(out.body.provider,'groq');
-  assert.equal(calls,1);
-  assert.ok(!JSON.stringify(out.body).includes('gsk_fictional-test-key'));
+  assert.equal(out.body.reply,'Namaste');
+  assert.equal(out.body.model,'model-served');
+  assert.equal(out.body.provider,'freellmapi');
+  assert.equal(count,1);
   assert.equal(out.headers['Cache-Control'],'no-store, private');
+  assert.ok(!JSON.stringify(out.body).includes('freellmapi-fake-test-secret'));
 });
-test('falls back to another Groq model on model-specific 429', async () => {
-  process.env.GROQ_API_KEY = 'gsk_fictional-test-key';
-  const calls=[];
-  globalThis.fetch = async (url, options) => {
-    const {model}=JSON.parse(options.body);
-    calls.push(model);
-    if(calls.length===1)return new Response(JSON.stringify({error:{code:'rate_limit_exceeded'}}),{status:429});
-    return new Response(JSON.stringify({choices:[{message:{content:'Fallback okay'}}]}),{status:200});
-  };
-  const out=mockResponse();
-  await handler(req([{role:'user',content:'try fallback'}]),out);
-  assert.equal(out.statusCode,200);
-  assert.equal(out.body.reply,'Fallback okay');
-  assert.deepEqual(calls,['openai/gpt-oss-120b','openai/gpt-oss-20b']);
-});
-test('Groq authentication failure never leaks the API key or retries', async () => {
-  process.env.GROQ_API_KEY = 'gsk_fictional-test-key';
-  let calls=0;
-  globalThis.fetch = async () => {
-    calls++;
-    return new Response(JSON.stringify({error:{code:'invalid_api_key'}}),{status:401});
-  };
-  const out=mockResponse();
-  await handler(req([{role:'user',content:'hi'}]),out);
+test('unified key invalid error never exposes secrets',async()=>{
+  process.env.FREELLMAPI_API_KEY='freellmapi-fake-test-secret';
+  process.env.FREELLMAPI_BASE_URL='https://router.example.net/v1';
+  globalThis.fetch=async()=>new Response(JSON.stringify({error:{message:'Invalid key'}}),{status:401});
+  const out=res();
+  await handler(req([{role:'user',content:'Hello'}]),out);
   assert.equal(out.statusCode,503);
-  assert.equal(out.body.reason,'groq_invalid_key');
-  assert.equal(calls,1);
-  assert.ok(!JSON.stringify(out.body).includes('gsk_fictional-test-key'));
+  assert.equal(out.body.reason,'freellmapi_auth_denied');
+  assert.ok(!JSON.stringify(out.body).includes('freellmapi-fake-test-secret'));
 });
-test('model override is restricted to supported model IDs', async () => {
-  process.env.GROQ_API_KEY='gsk_fictional-test-key';
-  process.env.GROQ_MODEL='unrecognized/paid-model';
-  let selected='';
-  globalThis.fetch = async (url, options) => {
-    selected=JSON.parse(options.body).model;
-    return new Response(JSON.stringify({choices:[{message:{content:'ok'}}]}),{status:200});
-  };
-  const out=mockResponse();
-  await handler(req([{role:'user',content:'hi'}]),out);
-  assert.equal(out.statusCode,200);
-  assert.equal(selected,'openai/gpt-oss-120b');
+test('unreachable proxy gives honest network status',async()=>{
+  process.env.FREELLMAPI_API_KEY='freellmapi-fake-test-secret';
+  process.env.FREELLMAPI_BASE_URL='https://router.example.net/v1';
+  globalThis.fetch=async()=>{throw new Error('ECONNREFUSED');};
+  const out=res();
+  await handler(req([{role:'user',content:'Hello'}]),out);
+  assert.equal(out.statusCode,503);
+  assert.equal(out.body.reason,'freellmapi_router_unreachable');
 });
-test('Groq rate limits and invalid API key errors are actionable', () => {
-  assert.equal(classifyGroqFailure(429).reason,'groq_rate_limited');
-  assert.equal(classifyGroqFailure(429).retry,true);
-  assert.equal(classifyGroqFailure(401).reason,'groq_invalid_key');
-  assert.equal(classifyGroqFailure(401).retry,false);
-  assert.equal(classifyGroqFailure(403).reason,'groq_access_denied');
-  assert.equal(classifyGroqFailure(403).retry,false);
+test('invalid FreeLLMAPI model name rejects arbitrary payload',async()=>{
+  process.env.FREELLMAPI_API_KEY='freellmapi-fake-test-secret';
+  process.env.FREELLMAPI_BASE_URL='https://router.example.net/v1';
+  process.env.FREELLMAPI_MODEL='auto\nAuthorization:malicious';
+  const out=res();
+  await handler(req([{role:'user',content:'Hello'}]),out);
+  assert.equal(out.statusCode,503);
+  assert.equal(out.body.reason,'freellmapi_invalid_model');
+});
+test('specific provider failure reasons stay actionable',()=>{
+  assert.equal(classifyFreeLLMAPIFailure(401).reason,'freellmapi_auth_denied');
+  assert.equal(classifyFreeLLMAPIFailure(429).reason,'freellmapi_rate_limited');
+  assert.equal(classifyFreeLLMAPIFailure(404).reason,'freellmapi_not_found');
 });
